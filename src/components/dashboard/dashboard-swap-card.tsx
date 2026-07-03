@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownUp, ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowDownUp, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -10,29 +10,31 @@ import {
   formatTokenAmountDisplay,
   formatTokenPrice,
 } from "@/lib/offpay/number-format";
-import type {
-  PortfolioHolding,
-  PortfolioValuation,
-} from "@/lib/offpay/portfolio-valuation";
+import type { PortfolioHolding } from "@/lib/offpay/portfolio-valuation";
+import type { SolanaCluster } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
 
+const clusterLabels: Record<SolanaCluster, string> = {
+  "solana:devnet": "devnet",
+  "solana:testnet": "testnet",
+  "solana:mainnet": "mainnet",
+};
+
 export function DashboardSwapCard({
+  cluster,
   holdings,
-  loading,
   priceError,
-  refetchPricing,
   unitUsdPrices,
-  valuation,
   walletAddress,
 }: {
+  cluster: SolanaCluster;
   holdings: PortfolioHolding[];
-  loading: boolean;
   priceError: Error | null;
-  refetchPricing: (() => void) | undefined;
   unitUsdPrices: Readonly<Record<string, number>>;
-  valuation: PortfolioValuation | null;
   walletAddress: string | undefined;
 }) {
+  const swapAvailable = cluster === "solana:mainnet";
+  const networkLabel = clusterLabels[cluster];
   const swapHoldings = useMemo(
     () => holdings.filter((holding) => holding.balance > 0),
     [holdings],
@@ -54,7 +56,8 @@ export function DashboardSwapCard({
   const estimatedUsd =
     selectedHolding && selectedPrice && validAmount > 0 ? validAmount * selectedPrice : null;
   const exceedsBalance = selectedHolding ? validAmount > selectedHolding.balance : false;
-  const canOpenSwap = Boolean(selectedHolding && validAmount > 0 && !exceedsBalance);
+  const canOpenSwap =
+    swapAvailable && Boolean(selectedHolding && validAmount > 0 && !exceedsBalance);
   const swapHref = selectedHolding
     ? {
         pathname: "/swap",
@@ -66,36 +69,18 @@ export function DashboardSwapCard({
     : "/swap";
 
   return (
-    <section className="min-h-[360px] rounded-lg border border-border bg-card/90 p-5 text-card-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)] md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Swap
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold leading-tight">Exchange assets</h2>
-        </div>
-        <button
-          type="button"
-          onClick={refetchPricing}
-          disabled={!refetchPricing || loading}
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground",
-            "transition-colors hover:text-foreground focus-visible:outline-none",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "disabled:pointer-events-none disabled:opacity-40",
-          )}
-          title="Refresh prices"
-          aria-label="Refresh prices"
-        >
-          <RefreshCw
-            className={cn("h-4 w-4", loading && "motion-safe:animate-spin")}
-            aria-hidden="true"
-          />
-        </button>
+    <section className="rounded-[28px] border border-border/60 bg-card/80 p-5 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm md:p-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Swap
+        </p>
+        <h2 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight">
+          Exchange assets
+        </h2>
       </div>
 
-      <form className="mt-6 space-y-3">
-        <div className="rounded-md bg-background/55 p-4">
+      <form className="mt-5 space-y-2.5">
+        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
           <label
             htmlFor="dashboard-swap-amount"
             className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
@@ -116,13 +101,13 @@ export function DashboardSwapCard({
                 }
               }}
               placeholder="0.00"
-              className="min-w-0 bg-transparent font-mono text-3xl font-semibold tabular-nums text-foreground outline-none placeholder:text-muted-foreground/55 focus-visible:ring-0"
+              className="min-w-0 bg-transparent font-display text-3xl font-bold tracking-tight tabular-nums text-foreground outline-none placeholder:text-muted-foreground/55 focus-visible:ring-0"
               aria-describedby="dashboard-swap-help"
             />
             <select
               value={selectedHolding?.priceMint ?? ""}
               onChange={(event) => setSelectedMint(event.target.value)}
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-10 rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Select sell token"
               disabled={swapHoldings.length === 0}
             >
@@ -151,15 +136,15 @@ export function DashboardSwapCard({
           </span>
         </div>
 
-        <div className="rounded-md bg-background/55 p-4">
+        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             You get
           </p>
           <div className="mt-3 flex items-end justify-between gap-3">
-            <p className="font-mono text-3xl font-semibold tabular-nums">
+            <p className="font-display text-3xl font-bold tracking-tight tabular-nums">
               {estimatedUsd == null ? "--" : formatFiatValue(estimatedUsd)}
             </p>
-            <span className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold">
+            <span className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold">
               USD
             </span>
           </div>
@@ -179,7 +164,23 @@ export function DashboardSwapCard({
         ) : null}
 
         <div className="pt-2">
-          {canOpenSwap ? (
+          {!swapAvailable ? (
+            <>
+              <span
+                className={cn(
+                  buttonVariants({ variant: "secondary" }),
+                  "w-full cursor-not-allowed opacity-60",
+                )}
+                aria-disabled="true"
+                title={`Swap is not available on ${networkLabel}`}
+              >
+                Unavailable on {networkLabel}
+              </span>
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Swaps are only available on mainnet.
+              </p>
+            </>
+          ) : canOpenSwap ? (
             <Link
               href={swapHref}
               className={cn(buttonVariants({ variant: "primary" }), "w-full")}
@@ -201,30 +202,6 @@ export function DashboardSwapCard({
           )}
         </div>
       </form>
-
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <SwapStat
-          label="Portfolio"
-          value={valuation ? formatFiatValue(valuation.totalUsd, { compact: true }) : "--"}
-        />
-        <SwapStat
-          label="Priced"
-          value={valuation ? `${valuation.pricedCount}/${valuation.expectedCount}` : "--"}
-        />
-      </div>
     </section>
-  );
-}
-
-function SwapStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-background/45 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 truncate font-mono text-sm font-semibold tabular-nums">
-        {value}
-      </p>
-    </div>
   );
 }

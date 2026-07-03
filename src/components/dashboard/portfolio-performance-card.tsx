@@ -23,7 +23,6 @@ import {
   buildPortfolioPriceTokens,
   buildPortfolioValuation,
   calculatePortfolioValueChange,
-  nativeSolMint,
   selectPortfolioHistoryInputs,
   type PortfolioChangeSample,
   type PortfolioHolding,
@@ -54,8 +53,16 @@ type PortfolioTimeframe = {
   interval: "5m" | "1h" | "1d";
 };
 
+const defaultPortfolioTimeframe: PortfolioTimeframe = {
+  id: "D",
+  label: "D",
+  changeLabel: "24H",
+  durationMs: dayMs,
+  interval: "5m",
+};
+
 const portfolioTimeframes: readonly PortfolioTimeframe[] = [
-  { id: "D", label: "D", changeLabel: "24H", durationMs: dayMs, interval: "5m" },
+  defaultPortfolioTimeframe,
   { id: "W", label: "W", changeLabel: "7D", durationMs: 7 * dayMs, interval: "1h" },
   { id: "M", label: "M", changeLabel: "30D", durationMs: 30 * dayMs, interval: "1d" },
   { id: "Y", label: "Y", changeLabel: "1Y", durationMs: 365 * dayMs, interval: "1d" },
@@ -94,7 +101,7 @@ export function PortfolioPerformanceCard({
   const [timeframeId, setTimeframeId] = useState<PortfolioTimeframeId>("D");
   const activeTimeframe =
     portfolioTimeframes.find((timeframe) => timeframe.id === timeframeId) ??
-    portfolioTimeframes[0];
+    defaultPortfolioTimeframe;
   const timeframeDurationMs = activeTimeframe.durationMs;
   const timeframeInterval = activeTimeframe.interval;
 
@@ -182,7 +189,7 @@ export function PortfolioPerformanceCard({
           });
 
           if (!envelope.ok) {
-            throw new Error(envelope.error.message);
+            return [input.priceMint, [] as MarketHistoricalUsdPricePoint[]] as const;
           }
 
           return [input.priceMint, envelope.data.prices] as const;
@@ -283,17 +290,17 @@ export function PortfolioPerformanceCard({
   }, [samples]);
 
   return (
-    <section className="relative min-h-[360px] overflow-hidden rounded-lg border border-border bg-card/90 text-card-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-      <div className="flex items-start justify-between gap-4 p-5 md:p-6">
+    <section className="relative flex flex-col overflow-hidden rounded-[28px] border border-border/60 bg-card/80 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm">
+      <div className="flex flex-col gap-4 p-6 pb-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Portfolio
           </p>
-          <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2">
-            <p className="font-mono text-4xl font-semibold leading-none tabular-nums md:text-5xl">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p className="font-display text-5xl font-bold leading-none tracking-tight tabular-nums md:text-6xl">
               {loading ? "--" : formatFiatValue(valuation.totalUsd)}
             </p>
-            <PortfolioChangePill change={change} />
+            <PortfolioChangePill change={change} timeframeLabel={activeTimeframe.changeLabel} />
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
             {activeTimeframe.changeLabel} value change from current holdings and live token
@@ -301,7 +308,7 @@ export function PortfolioPerformanceCard({
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 self-start">
           <PortfolioTimeframeToggle
             activeId={timeframeId}
             onSelect={setTimeframeId}
@@ -315,7 +322,7 @@ export function PortfolioPerformanceCard({
             }}
             disabled={!canRefresh || isRefreshing}
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/50 text-muted-foreground",
               "transition-colors hover:text-foreground focus-visible:outline-none",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:pointer-events-none disabled:opacity-40",
@@ -331,25 +338,25 @@ export function PortfolioPerformanceCard({
         </div>
       </div>
 
-      <div className="h-52 px-1 pb-5 md:px-2">
+      <div className="relative h-40 w-full">
         {loading ? (
-          <div className="mx-4 h-full animate-pulse rounded-lg bg-secondary/30" />
+          <div className="mx-6 mb-2 h-[calc(100%-0.5rem)] animate-pulse rounded-2xl bg-secondary/30" />
         ) : hasChart ? (
           <div
             className="h-full w-full"
             style={{
-              filter: `drop-shadow(0 6px 14px color-mix(in srgb, ${chartColor} 30%, transparent))`,
+              filter: `drop-shadow(0 8px 16px color-mix(in srgb, ${chartColor} 32%, transparent))`,
             }}
           >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={samples}
-                margin={{ top: 12, right: 8, bottom: 4, left: 8 }}
+                margin={{ top: 16, right: 0, bottom: 0, left: 0 }}
                 accessibilityLayer
               >
                 <defs>
                   <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.4} />
+                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.42} />
                     <stop offset="55%" stopColor={chartColor} stopOpacity={0.12} />
                     <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
                   </linearGradient>
@@ -363,6 +370,8 @@ export function PortfolioPerformanceCard({
                 />
                 <YAxis dataKey="usdValue" hide domain={chartDomain ?? ["dataMin", "dataMax"]} />
                 <Tooltip
+                  isAnimationActive={false}
+                  allowEscapeViewBox={{ x: false, y: true }}
                   cursor={{
                     stroke: chartColor,
                     strokeOpacity: 0.35,
@@ -378,6 +387,7 @@ export function PortfolioPerformanceCard({
                   stroke={chartColor}
                   strokeWidth={2.5}
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                   fill={`url(#${gradientId})`}
                   dot={false}
                   activeDot={{
@@ -387,12 +397,13 @@ export function PortfolioPerformanceCard({
                     strokeWidth: 3,
                   }}
                   isAnimationActive={false}
+                  connectNulls
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="mx-4 flex h-full items-center justify-center rounded-lg border border-border/60 bg-background/40 p-4 text-center">
+          <div className="mx-6 mb-2 flex h-[calc(100%-0.5rem)] items-center justify-center rounded-2xl border border-border/60 bg-background/40 p-4 text-center">
             <p className="text-sm text-muted-foreground">
               {priceError
                 ? priceError.message
@@ -404,23 +415,9 @@ export function PortfolioPerformanceCard({
         )}
       </div>
 
-      <div className="grid gap-3 border-t border-border/70 p-5 sm:grid-cols-3 md:p-6">
-        <PortfolioMetric label="Priced assets" value={`${valuation.pricedCount}/${valuation.expectedCount}`} />
-        <PortfolioMetric
-          label="Native SOL"
-          value={formatTokenHolding(
-            holdings.find((holding) => holding.priceMint === nativeSolMint)?.balance,
-          )}
-        />
-        <PortfolioMetric
-          label="Price refresh"
-          value={pricesQuery.data ? "Live" : gatewayOrigin ? "Pending" : "Unavailable"}
-        />
-      </div>
     </section>
   );
 }
-
 function PortfolioTimeframeToggle({
   activeId,
   onSelect,
@@ -458,11 +455,17 @@ function PortfolioTimeframeToggle({
   );
 }
 
-function PortfolioChangePill({ change }: { change: PortfolioValueChange | null }) {
+function PortfolioChangePill({
+  change,
+  timeframeLabel,
+}: {
+  change: PortfolioValueChange | null;
+  timeframeLabel: string;
+}) {
   if (!change) {
     return (
       <span className="rounded-full bg-secondary/50 px-3 py-1 text-xs font-semibold text-muted-foreground">
-        24H --
+        {timeframeLabel} --
       </span>
     );
   }
@@ -474,10 +477,10 @@ function PortfolioChangePill({ change }: { change: PortfolioValueChange | null }
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-        positive && "bg-success/15 text-success",
-        negative && "bg-destructive/15 text-destructive",
-        !positive && !negative && "bg-secondary/50 text-muted-foreground",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset",
+        positive && "bg-gain/15 text-gain ring-gain/25",
+        negative && "bg-loss/15 text-loss ring-loss/25",
+        !positive && !negative && "bg-secondary/50 text-muted-foreground ring-transparent",
       )}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -488,19 +491,6 @@ function PortfolioChangePill({ change }: { change: PortfolioValueChange | null }
         {formatPercentValue(change.percent, true)}
       </span>
     </span>
-  );
-}
-
-function PortfolioMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-md bg-background/45 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 truncate font-mono text-sm font-semibold tabular-nums">
-        {value}
-      </p>
-    </div>
   );
 }
 
@@ -526,7 +516,7 @@ function PortfolioTooltip({
   const DeltaIcon = deltaPositive ? TrendingUp : deltaNegative ? TrendingDown : null;
 
   return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
+    <div className="rounded-2xl border border-border bg-popover px-3.5 py-2.5 text-xs text-popover-foreground shadow-[0_12px_34px_rgba(0,0,0,0.5)]">
       <p className="font-mono text-sm font-semibold tabular-nums">
         {value != null ? formatFiatValue(value) : "--"}
       </p>
@@ -534,8 +524,8 @@ function PortfolioTooltip({
         <p
           className={cn(
             "mt-0.5 flex items-center gap-1 font-mono font-semibold tabular-nums",
-            deltaPositive && "text-success",
-            deltaNegative && "text-destructive",
+            deltaPositive && "text-gain",
+            deltaNegative && "text-loss",
             !deltaPositive && !deltaNegative && "text-muted-foreground",
             tone === "neutral" && !deltaPositive && !deltaNegative && "text-muted-foreground",
           )}
@@ -546,11 +536,4 @@ function PortfolioTooltip({
       ) : null}
     </div>
   );
-}
-
-function formatTokenHolding(value: number | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "0";
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: value >= 1 ? 4 : 6,
-  }).format(value);
 }

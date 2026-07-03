@@ -16,6 +16,13 @@ const tokenPriceBatchConcurrency = 6;
 const usdStablePriceSymbols = new Set(["USDC", "USDT", "DUSDC", "DUSDT"]);
 const base58Pattern = /^[1-9A-HJ-NP-Za-km-z]+$/;
 
+type AlchemyPricesConfig = {
+  apiKey: string;
+  origin: string;
+};
+
+type AlchemyPricesAuthMode = "path-key" | "bearer";
+
 export const marketPriceIdentifierSchema = z.union([
   z.object({
     type: z.literal("symbol"),
@@ -96,7 +103,7 @@ function configuredHttpsUrl(value: string | undefined): string | null {
   }
 }
 
-function requiredAlchemyConfig(env: GatewayEnv): { apiKey: string; origin: string } {
+function requiredAlchemyConfig(env: GatewayEnv): AlchemyPricesConfig {
   const origin = configuredHttpsUrl(env.ALCHEMY_PRICE_API_ORIGIN);
   const apiKey = env.ALCHEMY_PRICE_API_KEY?.trim();
 
@@ -114,9 +121,16 @@ function requiredAlchemyConfig(env: GatewayEnv): { apiKey: string; origin: strin
   return { apiKey, origin };
 }
 
-function buildAlchemyPricesUrl(env: GatewayEnv, path: `/${string}`): string {
-  const { apiKey, origin } = requiredAlchemyConfig(env);
-  return `${origin}/${encodeURIComponent(apiKey)}${path}`;
+function buildAlchemyPricesUrl(
+  config: AlchemyPricesConfig,
+  path: `/${string}`,
+  authMode: AlchemyPricesAuthMode,
+): string {
+  if (authMode === "bearer") {
+    return `${config.origin}${path}`;
+  }
+
+  return `${config.origin}/${encodeURIComponent(config.apiKey)}${path}`;
 }
 
 function readErrorMessage(payload: unknown): string | null {
@@ -142,6 +156,43 @@ async function fetchAlchemyJson(
   path: `/${string}`,
   init: RequestInit,
 ): Promise<unknown> {
+  const config = requiredAlchemyConfig(env);
+  const authModes: AlchemyPricesAuthMode[] = ["path-key", "bearer"];
+  let lastGatewayError: MarketGatewayError | null = null;
+
+  for (const authMode of authModes) {
+    try {
+      return await fetchAlchemyJsonWithAuthMode(config, path, init, authMode);
+    } catch (error) {
+      if (error instanceof MarketGatewayError) {
+        lastGatewayError = error;
+        if (error.status === 429) {
+          throw error;
+        }
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  if (lastGatewayError) {
+    throw lastGatewayError;
+  }
+
+  throw new MarketGatewayError({
+    code: "upstream_unavailable",
+    message: "Alchemy Prices is temporarily unavailable.",
+    status: 503,
+  });
+}
+
+async function fetchAlchemyJsonWithAuthMode(
+  config: AlchemyPricesConfig,
+  path: `/${string}`,
+  init: RequestInit,
+  authMode: AlchemyPricesAuthMode,
+): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort(
@@ -150,19 +201,30 @@ async function fetchAlchemyJson(
   }, alchemyPricesTimeoutMs);
 
   try {
-    const response = await fetch(buildAlchemyPricesUrl(env, path), {
+    const headers = new Headers(init.headers);
+    if (authMode === "bearer") {
+      headers.set("authorization", `Bearer ${config.apiKey}`);
+    }
+
+    const response = await fetch(buildAlchemyPricesUrl(config, path, authMode), {
       ...init,
+      headers,
       signal: controller.signal,
     });
     const payload = (await response.json().catch(() => null)) as unknown;
 
     if (!response.ok) {
       throw new MarketGatewayError({
-        code: response.status === 429 ? "rate_limited" : "upstream_unavailable",
+        code:
+          response.status === 404
+            ? "not_found"
+            : response.status === 429
+              ? "rate_limited"
+              : "upstream_unavailable",
         message:
           readErrorMessage(payload) ??
           `Alchemy Prices request failed with ${response.status}.`,
-        status: response.status === 429 ? 429 : 502,
+        status: response.status === 404 ? 404 : response.status === 429 ? 429 : 502,
       });
     }
 
@@ -234,30 +296,38 @@ export async function fetchMarketTokenUsdPrice(
   env: GatewayEnv,
   identifier: MarketPriceIdentifier,
 ): Promise<{ value: number; lastUpdatedAt: string } | null> {
-  const payload =
-    identifier.type === "symbol"
-      ? await fetchAlchemyJson(
-          env,
-          `/tokens/by-symbol?symbols=${encodeURIComponent(identifier.symbol)}`,
-          { method: "GET", headers: { accept: "application/json" } },
-        )
-      : await fetchAlchemyJson(env, "/tokens/by-address", {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            addresses: [{ network: identifier.network, address: identifier.address }],
-          }),
-        });
+  try {
+    const payload =
+      identifier.type === "symbol"
+        ? await fetchAlchemyJson(
+            env,
+            `/tokens/by-symbol?symbols=${encodeURIComponent(identifier.symbol)}`,
+            { method: "GET", headers: { accept: "application/json" } },
+          )
+        : await fetchAlchemyJson(env, "/tokens/by-address", {
+            method: "POST",
+            headers: {
+              accept: "application/json",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              addresses: [{ network: identifier.network, address: identifier.address }],
+            }),
+          });
 
-  const dataItem = readFirstDataItem(payload);
-  if (dataItem == null || typeof dataItem.error === "string") {
-    return null;
+    const dataItem = readFirstDataItem(payload);
+    if (dataItem == null || typeof dataItem.error === "string") {
+      return null;
+    }
+
+    return readUsdPrice(dataItem.prices);
+  } catch (error) {
+    if (error instanceof MarketGatewayError && error.status === 404) {
+      return null;
+    }
+
+    throw error;
   }
-
-  return readUsdPrice(dataItem.prices);
 }
 
 function readHistoricalPricePoints(payload: unknown): MarketHistoricalUsdPricePoint[] {
@@ -309,24 +379,32 @@ export async function fetchMarketTokenUsdPriceHistory(
     withMarketData?: boolean;
   },
 ): Promise<MarketHistoricalUsdPricePoint[]> {
-  const payload = await fetchAlchemyJson(env, "/tokens/historical", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      ...(identifier.type === "symbol"
-        ? { symbol: identifier.symbol }
-        : { network: identifier.network, address: identifier.address }),
-      startTime: params.startTime,
-      endTime: params.endTime,
-      interval: params.interval,
-      withMarketData: params.withMarketData ?? false,
-    }),
-  });
+  try {
+    const payload = await fetchAlchemyJson(env, "/tokens/historical", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        ...(identifier.type === "symbol"
+          ? { symbol: identifier.symbol }
+          : { network: identifier.network, address: identifier.address }),
+        startTime: params.startTime,
+        endTime: params.endTime,
+        interval: params.interval,
+        withMarketData: params.withMarketData ?? false,
+      }),
+    });
 
-  return readHistoricalPricePoints(payload);
+    return readHistoricalPricePoints(payload);
+  } catch (error) {
+    if (error instanceof MarketGatewayError && error.status === 404) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 function normalizePriceSymbol(value: string | null | undefined): string | null {

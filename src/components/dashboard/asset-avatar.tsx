@@ -1,17 +1,47 @@
-import { Coins } from "lucide-react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { useState } from "react";
 
-export function AssetAvatar({ symbol, native = false }: { symbol: string; native?: boolean }) {
+const passthroughImageLoader = ({ src }: { src: string }) => src;
+
+function readDisplayLogoUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function AssetAvatar({
+  logo,
+  name,
+}: {
+  logo: string | null | undefined;
+  name: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const logoUrl = failed ? null : readDisplayLogoUrl(logo);
+
+  if (!logoUrl) {
+    return null;
+  }
+
   return (
-    <span
-      className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold uppercase",
-        native ? "bg-primary/10 text-primary" : "bg-secondary text-secondary-foreground",
-      )}
-      aria-hidden="true"
-    >
-      {native ? <Coins className="h-5 w-5" /> : symbol.slice(0, 3)}
-    </span>
+    <Image
+      src={logoUrl}
+      alt={`${name} logo`}
+      width={40}
+      height={40}
+      className="h-10 w-10 shrink-0 rounded-full object-cover"
+      loader={passthroughImageLoader}
+      unoptimized
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
   );
 }

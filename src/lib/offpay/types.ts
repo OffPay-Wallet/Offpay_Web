@@ -52,6 +52,7 @@ export type WalletTokenBalance = {
 export type WalletSolBalance = {
   lamports: string;
   uiAmount: number;
+  logo?: string | null;
 };
 
 export type WalletPortfolio = {

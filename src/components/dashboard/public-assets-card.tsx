@@ -138,9 +138,9 @@ function PublicAssetsContent({
   return (
     <div className="divide-y divide-border">
       <AssetRow
-        native
         name={nativeSolMeta.name}
         symbol={nativeSolMeta.symbol}
+        logo={portfolio.sol.logo}
         amount={formatTokenAmount(portfolio.sol.uiAmount)}
         subLabel="Native balance"
       />
@@ -153,6 +153,7 @@ function PublicAssetsContent({
             key={`${token.programId ?? "api-worker"}:${token.mint}`}
             name={token.name ?? meta.name}
             symbol={symbol}
+            logo={token.logo}
             amount={formatTokenAmount(token.uiAmount)}
             subLabel={symbol}
           />

@@ -7,21 +7,21 @@ import { cn } from "@/lib/utils";
 
 export function AssetRow({
   amount,
+  logo,
   name,
-  native = false,
   subLabel,
   symbol,
 }: {
   amount: string;
+  logo?: string | null | undefined;
   name: string;
-  native?: boolean;
   subLabel?: string;
   symbol: string;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-3 p-4 sm:grid-cols-[1.5fr_1fr_auto]">
       <div className="flex min-w-0 items-center gap-3">
-        <AssetAvatar symbol={symbol} native={native} />
+        <AssetAvatar logo={logo} name={name} />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{subLabel ?? symbol}</p>

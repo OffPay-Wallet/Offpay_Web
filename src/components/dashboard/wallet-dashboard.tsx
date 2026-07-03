@@ -105,6 +105,11 @@ export function WalletDashboard() {
       debugLog("balances.query.success", {
         cluster: envelope.data.cluster,
         fetchedAt: envelope.data.fetchedAt,
+        solLogoAvailable: Boolean(envelope.data.sol.logo),
+        tokenLogoCount: envelope.data.tokens.filter((token) => Boolean(token.logo)).length,
+        tokenMetadataCount: envelope.data.tokens.filter(
+          (token) => Boolean(token.name || token.symbol),
+        ).length,
         requestId: envelope.requestId,
         signedSession: sessionReady,
         tokenCount: envelope.data.tokens.length,
@@ -350,12 +355,10 @@ export function WalletDashboard() {
         />
 
         <DashboardSwapCard
+          cluster={cluster}
           holdings={portfolioPricing?.holdings ?? []}
-          loading={portfolioPricing?.loading ?? Boolean(walletAddress && balancesQuery.isLoading)}
           priceError={portfolioPricing?.priceError ?? null}
-          refetchPricing={portfolioPricing?.refetchPricing}
           unitUsdPrices={portfolioPricing?.valuation.unitUsdPrices ?? {}}
-          valuation={portfolioPricing?.valuation ?? null}
           walletAddress={walletAddress}
         />
       </div>
