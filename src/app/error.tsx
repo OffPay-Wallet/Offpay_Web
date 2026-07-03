@@ -12,7 +12,7 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+    <main className="bg-app-gradient flex min-h-screen items-center justify-center p-4 text-foreground">
       <section className="w-full max-w-md rounded-lg border border-border bg-card p-5 text-card-foreground">
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" aria-hidden="true" />

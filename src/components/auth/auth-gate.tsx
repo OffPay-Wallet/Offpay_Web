@@ -6,7 +6,9 @@ import { useCallback, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { clearBrowserWalletSessionState } from "@/lib/offpay/browser-session-cleanup";
+import { debugLog, redactIdentifier } from "@/lib/offpay/debug";
 import { getPrivyAppId, offpayAppIconPath } from "@/lib/offpay/public-config";
+import { linkedSolanaWalletAddressesForUser } from "@/lib/offpay/privy-wallet-policy";
 
 type AuthGateProps = {
   children: ReactNode;
@@ -15,11 +17,31 @@ type AuthGateProps = {
 export function AuthGate({ children }: AuthGateProps) {
   const { authenticated, ready } = usePrivy();
   const { isOpen } = useModalStatus();
-  const { login } = useLogin();
+  const { login } = useLogin({
+    onComplete: ({ isNewUser, loginAccount, loginMethod, user, wasAlreadyAuthenticated }) => {
+      debugLog("auth.login.complete", {
+        isNewUser,
+        linkedAccountCount: user.linkedAccounts.length,
+        linkedWalletAddresses: linkedSolanaWalletAddressesForUser(user).map(
+          (address) => redactIdentifier(address) ?? "[empty]",
+        ),
+        loginAccountType: loginAccount?.type,
+        loginMethod,
+        privyUserId: redactIdentifier(user.id),
+        wasAlreadyAuthenticated,
+      });
+    },
+  });
   const [preparingLogin, setPreparingLogin] = useState(false);
   const privyAppId = getPrivyAppId();
 
   const openLogin = useCallback(async () => {
+    debugLog("auth.login.requested", {
+      authenticated,
+      preparingLogin,
+      ready,
+    });
+
     if (!ready || authenticated || preparingLogin) {
       return;
     }
@@ -27,10 +49,17 @@ export function AuthGate({ children }: AuthGateProps) {
     setPreparingLogin(true);
 
     try {
+      debugLog("auth.login.cleanup.start", { privyAppIdConfigured: Boolean(privyAppId) });
       await clearBrowserWalletSessionState({ privyAppId });
+      debugLog("auth.login.cleanup.complete", { privyAppIdConfigured: Boolean(privyAppId) });
     } finally {
       setPreparingLogin(false);
     }
+
+    debugLog("auth.login.modal.open", {
+      loginMethods: ["email", "google", "twitter", "wallet"],
+      walletChainType: "solana-only",
+    });
 
     login({
       loginMethods: ["email", "google", "twitter", "wallet"],
@@ -46,7 +75,7 @@ export function AuthGate({ children }: AuthGateProps) {
     return (
       <main
         aria-busy="true"
-        className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground"
+        className="bg-app-gradient flex min-h-screen items-center justify-center p-4 text-foreground"
       >
         <div className="flex flex-col items-center gap-4 text-center">
           <Image
@@ -64,7 +93,7 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   return (
-    <main aria-busy={isOpen} className="min-h-screen bg-background text-foreground">
+    <main aria-busy={isOpen} className="bg-app-gradient min-h-screen text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center px-4 py-7 sm:py-8">
         <Image
           src={offpayAppIconPath}

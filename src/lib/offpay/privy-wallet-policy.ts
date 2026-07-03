@@ -35,12 +35,25 @@ function latestVerifiedAtMs(account: unknown): number {
   return Number.NEGATIVE_INFINITY;
 }
 
+function isPrivyWalletClientType(walletClientType: unknown): boolean {
+  return walletClientType === "privy" || walletClientType === "privy-v2";
+}
+
+function walletAddressForAccount(account: unknown): string | null {
+  if (!isRecord(account) || typeof account.address !== "string") {
+    return null;
+  }
+
+  const address = account.address.trim();
+  return address.length > 0 ? address : null;
+}
+
 export function isLinkedPrivySolanaWallet(account: unknown): boolean {
   return (
     isRecord(account) &&
     account.type === "wallet" &&
     account.chainType === "solana" &&
-    account.walletClientType === "privy"
+    isPrivyWalletClientType(account.walletClientType)
   );
 }
 
@@ -49,8 +62,32 @@ export function isLinkedExternalSolanaWallet(account: unknown): boolean {
     isRecord(account) &&
     account.type === "wallet" &&
     account.chainType === "solana" &&
-    account.walletClientType !== "privy"
+    !isPrivyWalletClientType(account.walletClientType)
   );
+}
+
+export function linkedSolanaWalletAddressesForUser(
+  user: unknown,
+  custody?: WebWalletCustody,
+): string[] {
+  const addresses = new Set<string>();
+
+  for (const account of linkedAccountsForUser(user)) {
+    const isMatchingWallet =
+      custody === "privy-solana"
+        ? isLinkedPrivySolanaWallet(account)
+        : custody === "external-solana"
+          ? isLinkedExternalSolanaWallet(account)
+          : isLinkedPrivySolanaWallet(account) || isLinkedExternalSolanaWallet(account);
+
+    const address = isMatchingWallet ? walletAddressForAccount(account) : null;
+
+    if (address) {
+      addresses.add(address);
+    }
+  }
+
+  return [...addresses];
 }
 
 export function hasLinkedPrivySolanaWallet(user: unknown): boolean {

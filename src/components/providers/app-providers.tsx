@@ -8,11 +8,12 @@ import {
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Image from "next/image";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
 import { AuthGate } from "@/components/auth/auth-gate";
-import { offpayColorTokens } from "@/lib/offpay/color-tokens";
+import { clearPrivyAuthSessionStateForOAuthCallback } from "@/lib/offpay/browser-session-cleanup";
+import { debugLog, redactIdentifier } from "@/lib/offpay/debug";
 import {
   getPrivyAppId,
   getPrivyClientId,
@@ -60,8 +61,6 @@ function buildPrivyConfig(): PrivyClientConfig {
   return {
     loginMethods: privyLoginMethods,
     appearance: {
-      theme: offpayColorTokens.night,
-      accentColor: offpayColorTokens.seasalt,
       logo: offpayPrivyLogoPath,
       showWalletLoginFirst: false,
       walletChainType: "solana-only",
@@ -83,7 +82,7 @@ function buildPrivyConfig(): PrivyClientConfig {
 
 function PrivySetupRequired() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+    <main className="bg-app-gradient flex min-h-screen items-center justify-center p-4 text-foreground">
       <section className="w-full max-w-sm rounded-lg border border-border bg-card p-5 text-card-foreground">
         <Image
           src={offpayAppIconPath}
@@ -103,6 +102,9 @@ function PrivySetupRequired() {
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
+  const privyAppId = getPrivyAppId();
+  const privyClientId = getPrivyClientId();
+  const [oauthCallbackAuthReset] = useState(() => clearPrivyAuthSessionStateForOAuthCallback());
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -115,9 +117,21 @@ export function AppProviders({ children }: { children: ReactNode }) {
         },
       }),
   );
-  const privyAppId = getPrivyAppId();
-  const privyClientId = getPrivyClientId();
   const privyConfig = useMemo(() => buildPrivyConfig(), []);
+
+  useEffect(() => {
+    if (!oauthCallbackAuthReset.oauthCallbackDetected) {
+      return;
+    }
+
+    debugLog("auth.oauth_callback.bootstrap", {
+      activeUserIds: oauthCallbackAuthReset.activeUserIds.map(
+        (userId) => redactIdentifier(userId) ?? "[empty]",
+      ),
+      removedCookieCount: oauthCallbackAuthReset.removedCookieCount,
+      removedStorageKeyCount: oauthCallbackAuthReset.removedStorageKeyCount,
+    });
+  }, [oauthCallbackAuthReset]);
 
   const content = privyAppId ? (
     <PrivyProvider

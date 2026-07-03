@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { clearBrowserWalletSessionState } from "../../../src/lib/offpay/browser-session-cleanup";
+import {
+  clearBrowserWalletSessionState,
+  clearPrivyAuthSessionStateForOAuthCallback,
+} from "../../../src/lib/offpay/browser-session-cleanup";
 
 class MemoryStorage implements Pick<Storage, "getItem" | "key" | "length" | "removeItem"> {
   private readonly values = new Map<string, string>();
@@ -118,5 +121,62 @@ describe("browser wallet session cleanup", () => {
     });
 
     expect(deletedDatabases).toContain("WALLET_CONNECT_V2_INDEXED_DB");
+  });
+
+  it("clears Privy auth state on OAuth callback while preserving OAuth PKCE state", () => {
+    const localStorage = new MemoryStorage({
+      "privy:active-user": JSON.stringify("did:privy:previous-user"),
+      "privy:saved-users": JSON.stringify(["did:privy:previous-user"]),
+      "privy:token": JSON.stringify("token"),
+      "privy:pat": JSON.stringify("pat"),
+      "privy:refresh_token": JSON.stringify("refresh"),
+      "privy:id-token": JSON.stringify("identity"),
+      "privy:did:privy:previous-user:token": JSON.stringify("user-token"),
+      "privy:did:privy:previous-user:refresh_token": JSON.stringify("user-refresh"),
+      "privy:state_code": JSON.stringify("oauth-state"),
+      "privy:code_verifier": JSON.stringify("oauth-verifier"),
+      "theme": "dark",
+    });
+
+    const result = clearPrivyAuthSessionStateForOAuthCallback({
+      localStorage,
+      sessionStorage: null,
+      search:
+        "?privy_oauth_state=state&privy_oauth_provider=google&privy_oauth_code=code",
+    });
+
+    expect(result).toMatchObject({
+      activeUserIds: ["did:privy:previous-user"],
+      oauthCallbackDetected: true,
+      removedStorageKeyCount: 8,
+    });
+    expect(localStorage.has("privy:active-user")).toBe(false);
+    expect(localStorage.has("privy:saved-users")).toBe(false);
+    expect(localStorage.has("privy:token")).toBe(false);
+    expect(localStorage.has("privy:did:privy:previous-user:token")).toBe(false);
+    expect(localStorage.has("privy:state_code")).toBe(true);
+    expect(localStorage.has("privy:code_verifier")).toBe(true);
+    expect(localStorage.has("theme")).toBe(true);
+  });
+
+  it("does not clear Privy auth state when the URL is not an OAuth callback", () => {
+    const localStorage = new MemoryStorage({
+      "privy:active-user": JSON.stringify("did:privy:previous-user"),
+      "privy:token": JSON.stringify("token"),
+    });
+
+    const result = clearPrivyAuthSessionStateForOAuthCallback({
+      localStorage,
+      sessionStorage: null,
+      search: "?not_privy=true",
+    });
+
+    expect(result).toMatchObject({
+      activeUserIds: ["did:privy:previous-user"],
+      oauthCallbackDetected: false,
+      removedStorageKeyCount: 0,
+    });
+    expect(localStorage.has("privy:active-user")).toBe(true);
+    expect(localStorage.has("privy:token")).toBe(true);
   });
 });

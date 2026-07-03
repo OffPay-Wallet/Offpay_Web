@@ -32,6 +32,7 @@ export function WalletDashboard() {
     embeddedWalletCount,
     externalWalletCount,
     preferredWalletCustody,
+    privyUserId,
     privyReady,
     signerReady,
     walletAddress,
@@ -133,6 +134,11 @@ export function WalletDashboard() {
     void Promise.resolve().then(() => {
       setSessionToken(null);
       setSessionSyncError(null);
+
+      if (!sessionScopeKey) {
+        setSession(null);
+        setSessionReadState("idle");
+      }
     });
   }, [sessionScopeKey]);
 
@@ -178,6 +184,7 @@ export function WalletDashboard() {
       externalWalletCount,
       gatewayConfigured: Boolean(gatewayOrigin),
       preferredWalletCustody,
+      privyUserId: redactIdentifier(privyUserId),
       ready: privyReady,
       sessionReadState,
       sessionReady,
@@ -199,6 +206,7 @@ export function WalletDashboard() {
     externalWalletCount,
     gatewayOrigin,
     preferredWalletCustody,
+    privyUserId,
     privyReady,
     sessionReadState,
     sessionReady,
@@ -320,7 +328,10 @@ export function WalletDashboard() {
 
   return (
     <section className="space-y-5">
-      <WalletDashboardHeader />
+      <WalletDashboardHeader
+        assetCount={publicAssetCount}
+        loading={Boolean(walletAddress && balancesQuery.isLoading)}
+      />
 
       <WalletBalanceSummary
         isFetching={balancesQuery.isFetching}

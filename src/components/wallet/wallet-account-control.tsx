@@ -70,40 +70,40 @@ export function WalletAccountControl() {
   return (
     <div className="min-w-0">
       <div
-        className="inline-flex max-w-full items-center gap-2 font-sans"
+        className="inline-flex max-w-full items-center gap-5 font-sans text-xs font-bold text-foreground"
         aria-label="Wallet account"
       >
-        <button
-          type="button"
-          onClick={copyAddress}
-          className={cn(
-            "flex h-10 min-w-0 items-center gap-2 rounded-md px-2 text-foreground",
-            "cursor-pointer text-xs font-bold transition-colors duration-150 focus-visible:outline-none",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            copyStatus === "copied" && "text-success",
-          )}
-          aria-label="Copy wallet address"
-        >
-          <span
-            className="w-28 min-w-0 truncate font-sans tabular-nums"
-          >
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 truncate font-sans tabular-nums">
             {addressLabel}
           </span>
-          <CopyIcon
+          <button
+            type="button"
+            onClick={copyAddress}
             className={cn(
-              "h-3.5 w-3.5 shrink-0",
-              copyStatus === "copied" && "motion-safe:animate-bounce",
+              "flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-foreground",
+              "transition-colors duration-150 focus-visible:outline-none",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              copyStatus === "copied" && "text-success",
             )}
-            aria-hidden="true"
-          />
-        </button>
+            aria-label="Copy wallet address"
+          >
+            <CopyIcon
+              className={cn(
+                "h-4 w-4",
+                copyStatus === "copied" && "motion-safe:animate-bounce",
+              )}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => void disconnectAccount()}
           disabled={disconnecting}
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-md text-destructive",
-            "cursor-pointer transition-colors duration-150",
+            "flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm text-destructive",
+            "transition-colors duration-150",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",
           )}
@@ -112,7 +112,7 @@ export function WalletAccountControl() {
         >
           {disconnecting ? (
             <span
-              className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
+              className="h-4 w-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
               aria-hidden="true"
             />
           ) : (
