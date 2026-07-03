@@ -1,0 +1,39 @@
+name = "offpay-web-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-07-02"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+# offpay.app DNS is currently managed outside Cloudflare. Keep this gateway on
+# workers.dev until a custom gateway/app subdomain is pointed at Cloudflare.
+# routes = [{ pattern = "<confirmed-gateway-domain>", custom_domain = true }]
+
+[placement]
+mode = "smart"
+
+[observability]
+enabled = true
+
+# Runtime configuration is intentionally not hardcoded in this file.
+# Set Worker env/secrets with:
+# npx wrangler secret put OFFPAY_ALLOWED_WEB_ORIGINS --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put OFFPAY_WEB_SESSION_SECRET --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put OFFPAY_DEBUG_LOGS --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put OFFPAY_ALLOW_LOCALHOST_ORIGINS --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put HELIUS_DEVNET_RPC_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put HELIUS_MAINNET_RPC_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put HELIUS_DEVNET_WS_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put HELIUS_MAINNET_WS_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_DEVNET_RPC_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_MAINNET_RPC_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_DEVNET_FALLBACK_RPC_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_MAINNET_FALLBACK_RPC_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_DEVNET_WS_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_MAINNET_WS_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_PRICE_API_KEY --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put JUPITER_API_KEY --config workers/web-gateway/wrangler.toml
+#
+# OFFPAY_DEBUG_LOGS enables request and RPC timing console logs
+# when set to 1/true/debug/verbose. Keep it unset unless you are actively diagnosing.
+#
+# Loopback HTTP origins such as http://localhost:3000 are allowed by default for
+# local web debugging. Set OFFPAY_ALLOW_LOCALHOST_ORIGINS=false to disable that.
