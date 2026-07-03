@@ -1,4 +1,8 @@
 import type {
+  MarketHistoricalUsdPricePoint,
+  MarketTokenPriceHistoryRequest,
+  MarketTokenPricesBatchRequest,
+  MarketTokenPricesBatchResponse,
   SolanaCluster,
   WalletPortfolio,
   WebApiEnvelope,
@@ -301,6 +305,53 @@ export async function readGatewayPublicBalances(
     context: {
       network: input.network,
       walletAddress: redactIdentifier(input.walletAddress),
+    },
+  });
+}
+
+export async function readGatewayTokenPricesBatch(
+  gatewayOrigin: string,
+  input: MarketTokenPricesBatchRequest,
+): Promise<WebApiEnvelope<MarketTokenPricesBatchResponse>> {
+  return requestGateway<MarketTokenPricesBatchResponse>({
+    gatewayOrigin,
+    label: "market.token_prices_batch",
+    path: "/web/market/token-prices-batch",
+    init: {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    context: {
+      network: input.network,
+      tokenCount: input.tokens.length,
+    },
+  });
+}
+
+export async function readGatewayTokenPriceHistory(
+  gatewayOrigin: string,
+  input: MarketTokenPriceHistoryRequest,
+): Promise<WebApiEnvelope<{ prices: MarketHistoricalUsdPricePoint[] }>> {
+  return requestGateway<{ prices: MarketHistoricalUsdPricePoint[] }>({
+    gatewayOrigin,
+    label: "market.token_price_history",
+    path: "/web/market/token-price-history",
+    init: {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    context: {
+      identifierType: input.identifier.type,
+      interval: input.interval,
+      network: input.network,
     },
   });
 }

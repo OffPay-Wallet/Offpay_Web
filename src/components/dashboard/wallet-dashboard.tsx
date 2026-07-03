@@ -3,9 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+import { DashboardSwapCard } from "@/components/dashboard/dashboard-swap-card";
+import {
+  PortfolioPerformanceCard,
+  type PortfolioPricingState,
+} from "@/components/dashboard/portfolio-performance-card";
 import { PublicAssetsCard } from "@/components/dashboard/public-assets-card";
 import { ShieldedAssetsCard } from "@/components/dashboard/shielded-assets-card";
-import { WalletBalanceSummary } from "@/components/dashboard/wallet-balance-summary";
 import { WalletDashboardHeader } from "@/components/dashboard/wallet-dashboard-header";
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
 import { getErrorMessage } from "@/lib/offpay/display";
@@ -44,6 +48,7 @@ export function WalletDashboard() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sessionReadState, setSessionReadState] = useState<SessionReadState>("idle");
   const [, setSessionSyncError] = useState<string | null>(null);
+  const [portfolioPricing, setPortfolioPricing] = useState<PortfolioPricingState | null>(null);
 
   const cluster = getPublicSolanaCluster();
   const gatewayOrigin = getGatewayOrigin();
@@ -111,7 +116,6 @@ export function WalletDashboard() {
   });
 
   const portfolio = balancesQuery.data;
-  const solUiAmount = portfolio?.sol.uiAmount ?? 0;
   const tokens = portfolio?.tokens ?? [];
   const publicAssetCount = portfolio ? tokens.length + 1 : 0;
   const sessionScopeKey =
@@ -333,14 +337,28 @@ export function WalletDashboard() {
         loading={Boolean(walletAddress && balancesQuery.isLoading)}
       />
 
-      <WalletBalanceSummary
-        isFetching={balancesQuery.isFetching}
-        onRefresh={() => void balancesQuery.refetch()}
-        publicAssetCount={publicAssetCount}
-        solUiAmount={solUiAmount}
-        tokenCount={tokens.length}
-        walletAddress={walletAddress}
-      />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)]">
+        <PortfolioPerformanceCard
+          cluster={cluster}
+          gatewayOrigin={gatewayOrigin}
+          isBalancesFetching={balancesQuery.isFetching}
+          isBalancesLoading={balancesQuery.isLoading}
+          onPricingState={setPortfolioPricing}
+          onRefreshBalances={() => void balancesQuery.refetch()}
+          portfolio={portfolio}
+          walletAddress={walletAddress}
+        />
+
+        <DashboardSwapCard
+          holdings={portfolioPricing?.holdings ?? []}
+          loading={portfolioPricing?.loading ?? Boolean(walletAddress && balancesQuery.isLoading)}
+          priceError={portfolioPricing?.priceError ?? null}
+          refetchPricing={portfolioPricing?.refetchPricing}
+          unitUsdPrices={portfolioPricing?.valuation.unitUsdPrices ?? {}}
+          valuation={portfolioPricing?.valuation ?? null}
+          walletAddress={walletAddress}
+        />
+      </div>
 
       <ShieldedAssetsCard />
 

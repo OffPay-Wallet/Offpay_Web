@@ -35,13 +35,13 @@ export function AppSidebar() {
       className={cn(
         "offpay-liquid-glass relative isolate w-full shrink-0 overflow-hidden rounded-2xl text-card-foreground",
         "transition-[width] duration-200 motion-reduce:transition-none md:h-full",
-        collapsed ? "md:w-28" : "md:w-64",
+        collapsed ? "md:w-24" : "md:w-64",
       )}
     >
       <div
         className={cn(
           "relative z-10 flex min-h-0 gap-3 overflow-x-auto px-4 py-3 md:h-full md:flex-col md:overflow-hidden md:p-4",
-          collapsed && "md:px-3",
+          collapsed && "md:px-1",
         )}
       >
         <div
@@ -96,7 +96,7 @@ export function AppSidebar() {
         <p
           className={cn(
             "hidden px-3 pt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70 md:block",
-            collapsed && "md:px-0 md:text-center",
+            collapsed && "md:hidden",
           )}
         >
           Menu
@@ -108,17 +108,21 @@ export function AppSidebar() {
               const Icon = navIconByKey[item.key];
 
               return (
-                <li key={item.key} className="shrink-0 md:shrink">
+                <li key={item.key} className="shrink-0 md:w-full md:shrink">
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold",
+                      "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold",
                       "transition-colors duration-150 focus-visible:outline-none",
                       "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       "focus-visible:ring-offset-card hover:text-foreground motion-reduce:transition-none",
                       collapsed && "md:w-11 md:justify-center md:px-0",
-                      active && "offpay-sidebar-link-active",
+                      active && "offpay-sidebar-link-active rounded-none",
+                      active &&
+                        !collapsed &&
+                        "md:-mx-4 md:w-[calc(100%+2rem)] md:px-7",
+                      active && collapsed && "md:-mx-1 md:w-[calc(100%+0.5rem)]",
                       active ? "text-foreground" : "text-muted-foreground",
                     )}
                   >

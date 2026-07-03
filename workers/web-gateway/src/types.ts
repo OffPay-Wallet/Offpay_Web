@@ -17,6 +17,7 @@ export type GatewayEnv = {
   ALCHEMY_MAINNET_FALLBACK_RPC_URL?: string;
   ALCHEMY_DEVNET_WS_URL?: string;
   ALCHEMY_MAINNET_WS_URL?: string;
+  ALCHEMY_PRICE_API_ORIGIN?: string;
   ALCHEMY_PRICE_API_KEY?: string;
   JUPITER_API_BASE_URL?: string;
   JUPITER_TRIGGER_API_BASE_URL?: string;

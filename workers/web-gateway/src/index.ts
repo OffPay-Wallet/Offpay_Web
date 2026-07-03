@@ -14,6 +14,15 @@ import {
   type ManualWorkflowRoute,
 } from "./manual-config";
 import {
+  MarketGatewayError,
+  fetchMarketTokenUsdPrice,
+  fetchMarketTokenUsdPriceHistory,
+  marketTokenPriceBatchBodySchema,
+  marketTokenPriceBodySchema,
+  marketTokenPriceHistoryBodySchema,
+  resolveMarketTokenPricesBatch,
+} from "./market";
+import {
   appendServerTiming,
   durationSince,
   gatewayDebugLog,
@@ -447,6 +456,130 @@ app.get("/web/wallet/balance", requireSession, async (c) => {
     label: "wallet_balance",
   });
 });
+
+function marketErrorResponse(c: Context<GatewayBindings>, error: unknown): Response {
+  if (error instanceof MarketGatewayError) {
+    gatewayWarnLog(c, "market.error", {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+    });
+
+    return fail(c, error.status, {
+      code: error.code,
+      message: error.message,
+      ...(error.details ? { details: error.details } : {}),
+    });
+  }
+
+  gatewayWarnLog(c, "market.unknown_error");
+  return fail(c, 502, {
+    code: "market_unavailable",
+    message: "Market pricing is unavailable.",
+  });
+}
+
+app.post("/web/market/token-price", zValidator("json", marketTokenPriceBodySchema), async (c) => {
+  const input = c.req.valid("json");
+  const startedAtMs = nowMs();
+
+  gatewayDebugLog(c, "market.token_price.start", {
+    identifierType: input.identifier.type,
+    network: input.network,
+  });
+
+  try {
+    const price = await fetchMarketTokenUsdPrice(c.env, input.identifier);
+    const durationMs = durationSince(startedAtMs);
+
+    appendServerTiming(c, "market", durationMs);
+    gatewayDebugLog(c, "market.token_price.success", {
+      durationMs: roundedDurationMs(durationMs),
+      found: Boolean(price),
+      identifierType: input.identifier.type,
+      network: input.network,
+    });
+    return ok(c, { price });
+  } catch (error) {
+    appendServerTiming(c, "market", durationSince(startedAtMs));
+    return marketErrorResponse(c, error);
+  }
+});
+
+app.post(
+  "/web/market/token-prices-batch",
+  zValidator("json", marketTokenPriceBatchBodySchema),
+  async (c) => {
+    const input = c.req.valid("json");
+    const startedAtMs = nowMs();
+
+    gatewayDebugLog(c, "market.token_prices_batch.start", {
+      network: input.network,
+      tokenCount: input.tokens.length,
+    });
+
+    try {
+      const result = await resolveMarketTokenPricesBatch({
+        env: c.env,
+        network: input.network,
+        currency: input.currency,
+        tokens: input.tokens,
+      });
+      const durationMs = durationSince(startedAtMs);
+
+      appendServerTiming(c, "market", durationMs);
+      gatewayDebugLog(c, "market.token_prices_batch.success", {
+        durationMs: roundedDurationMs(durationMs),
+        expectedCount: result.expectedCount,
+        network: result.network,
+        pricedCount: result.pricedCount,
+      });
+      return ok(c, result);
+    } catch (error) {
+      appendServerTiming(c, "market", durationSince(startedAtMs));
+      return marketErrorResponse(c, error);
+    }
+  },
+);
+
+app.post(
+  "/web/market/token-price-history",
+  zValidator("json", marketTokenPriceHistoryBodySchema),
+  async (c) => {
+    const input = c.req.valid("json");
+    const startedAtMs = nowMs();
+
+    gatewayDebugLog(c, "market.token_price_history.start", {
+      identifierType: input.identifier.type,
+      interval: input.interval,
+      network: input.network,
+    });
+
+    try {
+      const prices = await fetchMarketTokenUsdPriceHistory(c.env, input.identifier, {
+        startTime: input.startTime,
+        endTime: input.endTime,
+        interval: input.interval,
+        ...(input.withMarketData === undefined
+          ? {}
+          : { withMarketData: input.withMarketData }),
+      });
+      const durationMs = durationSince(startedAtMs);
+
+      appendServerTiming(c, "market", durationMs);
+      gatewayDebugLog(c, "market.token_price_history.success", {
+        durationMs: roundedDurationMs(durationMs),
+        identifierType: input.identifier.type,
+        network: input.network,
+        sampleCount: prices.length,
+      });
+      return ok(c, { prices });
+    } catch (error) {
+      appendServerTiming(c, "market", durationSince(startedAtMs));
+      return marketErrorResponse(c, error);
+    }
+  },
+);
 
 function manualRouteHandler(route: ManualWorkflowRoute) {
   return (c: Context<GatewayBindings>) =>

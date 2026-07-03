@@ -120,31 +120,31 @@ body {
 .offpay-sidebar-link-active {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
 }
 
 .offpay-sidebar-link-active::before {
   position: absolute;
-  z-index: -1;
-  inset-block: -6px;
-  inset-inline: -14px -18px;
+  z-index: 0;
+  inset: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: inherit;
   background:
-    radial-gradient(
-      80% 130% at 100% 50%,
-      color-mix(in srgb, var(--offpay-color-seasalt) 18%, transparent) 0%,
-      color-mix(in srgb, var(--offpay-color-silver) 12%, transparent) 30%,
-      transparent 72%
-    ),
     linear-gradient(
       270deg,
-      color-mix(in srgb, var(--offpay-color-seasalt) 10%, transparent) 0%,
-      transparent 68%
+      color-mix(in srgb, var(--offpay-color-seasalt) 38%, transparent) 0%,
+      color-mix(in srgb, var(--offpay-color-silver) 24%, transparent) 18%,
+      color-mix(in srgb, var(--offpay-color-davys-gray) 18%, transparent) 42%,
+      transparent 82%
     );
   content: "";
-  filter: blur(16px);
-  opacity: 0.9;
+  opacity: 0.78;
   pointer-events: none;
+}
+
+.offpay-sidebar-link-active > * {
+  position: relative;
+  z-index: 1;
 }
 
 @supports selector(:has(*)) {

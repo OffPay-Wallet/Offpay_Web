@@ -62,6 +62,56 @@ export type WalletPortfolio = {
   tokens: WalletTokenBalance[];
 };
 
+export type MarketPriceIdentifier =
+  | {
+      type: "symbol";
+      symbol: string;
+    }
+  | {
+      type: "address";
+      network: string;
+      address: string;
+    };
+
+export type MarketTokenPricesBatchRequest = {
+  currency: "USD";
+  network: SolanaCluster;
+  tokens: Array<{
+    mint: string;
+    symbol: string;
+    priceSymbol: string;
+  }>;
+};
+
+export type MarketTokenPricesBatchResponse = {
+  network: SolanaCluster;
+  currency: "USD";
+  rate: 1;
+  fetchedAt: number;
+  unitUsdPrices: Record<string, number>;
+  pricedCount: number;
+  expectedCount: number;
+};
+
+export type MarketHistoricalPriceInterval = "5m" | "1h" | "1d";
+
+export type MarketHistoricalUsdPricePoint = {
+  value: number;
+  timestamp: number;
+  timestampIso: string;
+  marketCap: number | null;
+  totalVolume: number | null;
+};
+
+export type MarketTokenPriceHistoryRequest = {
+  identifier: MarketPriceIdentifier;
+  network: SolanaCluster;
+  startTime: string;
+  endTime: string;
+  interval: MarketHistoricalPriceInterval;
+  withMarketData?: boolean;
+};
+
 export type WebGatewayRequestContext = {
   requestId: string;
   session?: WebSession;

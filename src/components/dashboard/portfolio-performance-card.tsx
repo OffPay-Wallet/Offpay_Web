@@ -1,0 +1,556 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  YAxis,
+} from "recharts";
+import { RefreshCw, TrendingDown, TrendingUp, TriangleAlert } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+
+import {
+  readGatewayTokenPriceHistory,
+  readGatewayTokenPricesBatch,
+} from "@/lib/offpay/gateway-client";
+import {
+  buildMarketHistoryIdentifier,
+  buildPortfolioHistorySamples,
+  buildPortfolioHoldings,
+  buildPortfolioPriceTokens,
+  buildPortfolioValuation,
+  calculatePortfolioValueChange,
+  nativeSolMint,
+  selectPortfolioHistoryInputs,
+  type PortfolioChangeSample,
+  type PortfolioHolding,
+  type PortfolioValuation,
+  type PortfolioValueChange,
+} from "@/lib/offpay/portfolio-valuation";
+import {
+  formatFiatValue,
+  formatPercentValue,
+} from "@/lib/offpay/number-format";
+import type {
+  MarketHistoricalUsdPricePoint,
+  SolanaCluster,
+  WalletPortfolio,
+} from "@/lib/offpay/types";
+import { cn } from "@/lib/utils";
+
+const dayMs = 24 * 60 * 60 * 1000;
+const emptyUnitUsdPrices: Readonly<Record<string, number>> = Object.freeze({});
+
+type PortfolioTimeframeId = "D" | "W" | "M" | "Y";
+
+type PortfolioTimeframe = {
+  id: PortfolioTimeframeId;
+  label: string;
+  changeLabel: string;
+  durationMs: number;
+  interval: "5m" | "1h" | "1d";
+};
+
+const portfolioTimeframes: readonly PortfolioTimeframe[] = [
+  { id: "D", label: "D", changeLabel: "24H", durationMs: dayMs, interval: "5m" },
+  { id: "W", label: "W", changeLabel: "7D", durationMs: 7 * dayMs, interval: "1h" },
+  { id: "M", label: "M", changeLabel: "30D", durationMs: 30 * dayMs, interval: "1d" },
+  { id: "Y", label: "Y", changeLabel: "1Y", durationMs: 365 * dayMs, interval: "1d" },
+];
+
+export type PortfolioPricingState = {
+  change: PortfolioValueChange | null;
+  holdings: PortfolioHolding[];
+  loading: boolean;
+  priceError: Error | null;
+  refetchPricing: () => void;
+  samples: PortfolioChangeSample[];
+  valuation: PortfolioValuation;
+};
+
+export function PortfolioPerformanceCard({
+  cluster,
+  gatewayOrigin,
+  isBalancesFetching,
+  isBalancesLoading,
+  onRefreshBalances,
+  onPricingState,
+  portfolio,
+  walletAddress,
+}: {
+  cluster: SolanaCluster;
+  gatewayOrigin: string | undefined;
+  isBalancesFetching: boolean;
+  isBalancesLoading: boolean;
+  onRefreshBalances: () => void;
+  onPricingState?: (state: PortfolioPricingState) => void;
+  portfolio: WalletPortfolio | undefined;
+  walletAddress: string | undefined;
+}) {
+  const gradientId = useId().replace(/:/g, "");
+  const [timeframeId, setTimeframeId] = useState<PortfolioTimeframeId>("D");
+  const activeTimeframe =
+    portfolioTimeframes.find((timeframe) => timeframe.id === timeframeId) ??
+    portfolioTimeframes[0];
+  const timeframeDurationMs = activeTimeframe.durationMs;
+  const timeframeInterval = activeTimeframe.interval;
+
+  const holdings = useMemo(() => buildPortfolioHoldings(portfolio), [portfolio]);
+  const priceTokens = useMemo(() => buildPortfolioPriceTokens(holdings), [holdings]);
+  const priceTokenKey = useMemo(
+    () =>
+      priceTokens
+        .map((token) => `${token.mint}:${token.symbol}:${token.priceSymbol}`)
+        .join("|"),
+    [priceTokens],
+  );
+
+  const pricesQuery = useQuery({
+    queryKey: ["portfolio-token-prices", gatewayOrigin, cluster, priceTokenKey],
+    enabled: Boolean(gatewayOrigin && priceTokens.length > 0),
+    queryFn: async () => {
+      if (!gatewayOrigin) {
+        throw new Error("Gateway origin is not configured.");
+      }
+
+      const envelope = await readGatewayTokenPricesBatch(gatewayOrigin, {
+        currency: "USD",
+        network: cluster,
+        tokens: priceTokens,
+      });
+
+      if (!envelope.ok) {
+        throw new Error(envelope.error.message);
+      }
+
+      return envelope.data;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
+
+  const unitUsdPrices = useMemo(
+    () => pricesQuery.data?.unitUsdPrices ?? emptyUnitUsdPrices,
+    [pricesQuery.data?.unitUsdPrices],
+  );
+  const valuation = useMemo(
+    () => buildPortfolioValuation({ holdings, unitUsdPrices }),
+    [holdings, unitUsdPrices],
+  );
+  const historySelection = useMemo(
+    () => selectPortfolioHistoryInputs({ holdings, currentUnitUsdPrices: unitUsdPrices }),
+    [holdings, unitUsdPrices],
+  );
+  const historyTokenKey = useMemo(
+    () =>
+      historySelection.historyInputs
+        .map((input) => `${input.priceMint}:${input.priceSymbol}:${input.balance}`)
+        .join("|"),
+    [historySelection.historyInputs],
+  );
+
+  const historyQuery = useQuery({
+    queryKey: [
+      "portfolio-value-history",
+      gatewayOrigin,
+      cluster,
+      timeframeId,
+      historyTokenKey,
+    ],
+    enabled: Boolean(gatewayOrigin && historySelection.historyInputs.length > 0),
+    queryFn: async () => {
+      if (!gatewayOrigin) {
+        throw new Error("Gateway origin is not configured.");
+      }
+
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - timeframeDurationMs);
+      const entries = await Promise.all(
+        historySelection.historyInputs.map(async (input) => {
+          const envelope = await readGatewayTokenPriceHistory(gatewayOrigin, {
+            identifier: buildMarketHistoryIdentifier({ cluster, input }),
+            network: cluster,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            interval: timeframeInterval,
+            withMarketData: false,
+          });
+
+          if (!envelope.ok) {
+            throw new Error(envelope.error.message);
+          }
+
+          return [input.priceMint, envelope.data.prices] as const;
+        }),
+      );
+
+      return new Map<string, MarketHistoricalUsdPricePoint[]>(entries);
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
+
+  const valuationTimestamp = pricesQuery.data?.fetchedAt ?? historyQuery.dataUpdatedAt;
+  const samples = useMemo(() => {
+    const liveUsdPricesByMint = new Map<string, number>();
+    for (const [mint, price] of Object.entries(unitUsdPrices)) {
+      if (Number.isFinite(price) && price > 0) {
+        liveUsdPricesByMint.set(mint, price);
+      }
+    }
+
+    return buildPortfolioHistorySamples({
+      inputs: historySelection.inputs,
+      historiesByMint: historyQuery.data ?? new Map(),
+      timestamp: valuationTimestamp,
+      durationMs: timeframeDurationMs,
+      liveUsdPricesByMint,
+    });
+  }, [
+    historyQuery.data,
+    historySelection.inputs,
+    timeframeDurationMs,
+    unitUsdPrices,
+    valuationTimestamp,
+  ]);
+  const change = useMemo(() => calculatePortfolioValueChange(samples), [samples]);
+  const loading =
+    Boolean(walletAddress && isBalancesLoading) ||
+    (holdings.length > 0 && pricesQuery.isLoading);
+  const priceError =
+    pricesQuery.error instanceof Error
+      ? pricesQuery.error
+      : historyQuery.error instanceof Error
+        ? historyQuery.error
+        : null;
+  const refetchPrices = pricesQuery.refetch;
+  const refetchHistory = historyQuery.refetch;
+  const refetchPricing = useCallback(() => {
+    void refetchPrices();
+    void refetchHistory();
+  }, [refetchHistory, refetchPrices]);
+
+  useEffect(() => {
+    onPricingState?.({
+      change,
+      holdings,
+      loading,
+      priceError,
+      refetchPricing,
+      samples,
+      valuation,
+    });
+  }, [
+    change,
+    holdings,
+    loading,
+    onPricingState,
+    priceError,
+    refetchPricing,
+    samples,
+    valuation,
+  ]);
+
+  const canRefresh = Boolean(walletAddress && gatewayOrigin);
+  const isRefreshing = isBalancesFetching || pricesQuery.isFetching || historyQuery.isFetching;
+  const chartTone = change?.tone ?? "neutral";
+  const chartColor =
+    chartTone === "negative"
+      ? "var(--offpay-color-red)"
+      : "var(--offpay-color-seasalt)";
+  const hasChart = !loading && samples.length >= 2;
+  const baselineUsd = samples[0]?.usdValue ?? null;
+  const chartDomain = useMemo<[number, number] | undefined>(() => {
+    if (samples.length < 2) return undefined;
+
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    for (const sample of samples) {
+      if (sample.usdValue < min) min = sample.usdValue;
+      if (sample.usdValue > max) max = sample.usdValue;
+    }
+
+    const span = max - min;
+    const pad = span > 0 ? span * 0.16 : Math.abs(max) * 0.04 || 1;
+    return [min - pad, max + pad * 0.6];
+  }, [samples]);
+
+  return (
+    <section className="relative min-h-[360px] overflow-hidden rounded-lg border border-border bg-card/90 text-card-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+      <div className="flex items-start justify-between gap-4 p-5 md:p-6">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Portfolio
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2">
+            <p className="font-mono text-4xl font-semibold leading-none tabular-nums md:text-5xl">
+              {loading ? "--" : formatFiatValue(valuation.totalUsd)}
+            </p>
+            <PortfolioChangePill change={change} />
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {activeTimeframe.changeLabel} value change from current holdings and live token
+            prices
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <PortfolioTimeframeToggle
+            activeId={timeframeId}
+            onSelect={setTimeframeId}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onRefreshBalances();
+              void pricesQuery.refetch();
+              void historyQuery.refetch();
+            }}
+            disabled={!canRefresh || isRefreshing}
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground",
+              "transition-colors hover:text-foreground focus-visible:outline-none",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:pointer-events-none disabled:opacity-40",
+            )}
+            title="Refresh portfolio"
+            aria-label="Refresh portfolio"
+          >
+            <RefreshCw
+              className={cn("h-4 w-4", isRefreshing && "motion-safe:animate-spin")}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      </div>
+
+      <div className="h-52 px-1 pb-5 md:px-2">
+        {loading ? (
+          <div className="mx-4 h-full animate-pulse rounded-lg bg-secondary/30" />
+        ) : hasChart ? (
+          <div
+            className="h-full w-full"
+            style={{
+              filter: `drop-shadow(0 6px 14px color-mix(in srgb, ${chartColor} 30%, transparent))`,
+            }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={samples}
+                margin={{ top: 12, right: 8, bottom: 4, left: 8 }}
+                accessibilityLayer
+              >
+                <defs>
+                  <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.4} />
+                    <stop offset="55%" stopColor={chartColor} stopOpacity={0.12} />
+                    <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  horizontal
+                  vertical={false}
+                  strokeDasharray="4 8"
+                  stroke="var(--offpay-color-silver)"
+                  strokeOpacity={0.14}
+                />
+                <YAxis dataKey="usdValue" hide domain={chartDomain ?? ["dataMin", "dataMax"]} />
+                <Tooltip
+                  cursor={{
+                    stroke: chartColor,
+                    strokeOpacity: 0.35,
+                    strokeDasharray: "4 4",
+                  }}
+                  content={
+                    <PortfolioTooltip baselineUsd={baselineUsd} tone={chartTone} />
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="usdValue"
+                  stroke={chartColor}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  fill={`url(#${gradientId})`}
+                  dot={false}
+                  activeDot={{
+                    r: 5,
+                    fill: chartColor,
+                    stroke: "var(--offpay-color-night)",
+                    strokeWidth: 3,
+                  }}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="mx-4 flex h-full items-center justify-center rounded-lg border border-border/60 bg-background/40 p-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              {priceError
+                ? priceError.message
+                : holdings.length === 0
+                  ? "No priced holdings found in this wallet yet."
+                  : "Chart history is unavailable for these holdings."}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-3 border-t border-border/70 p-5 sm:grid-cols-3 md:p-6">
+        <PortfolioMetric label="Priced assets" value={`${valuation.pricedCount}/${valuation.expectedCount}`} />
+        <PortfolioMetric
+          label="Native SOL"
+          value={formatTokenHolding(
+            holdings.find((holding) => holding.priceMint === nativeSolMint)?.balance,
+          )}
+        />
+        <PortfolioMetric
+          label="Price refresh"
+          value={pricesQuery.data ? "Live" : gatewayOrigin ? "Pending" : "Unavailable"}
+        />
+      </div>
+    </section>
+  );
+}
+
+function PortfolioTimeframeToggle({
+  activeId,
+  onSelect,
+}: {
+  activeId: PortfolioTimeframeId;
+  onSelect: (id: PortfolioTimeframeId) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Chart timeframe"
+      className="flex items-center gap-0.5 rounded-full border border-border/70 bg-background/50 p-1"
+    >
+      {portfolioTimeframes.map((timeframe) => {
+        const isActive = timeframe.id === activeId;
+        return (
+          <button
+            key={timeframe.id}
+            type="button"
+            onClick={() => onSelect(timeframe.id)}
+            aria-pressed={isActive}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {timeframe.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PortfolioChangePill({ change }: { change: PortfolioValueChange | null }) {
+  if (!change) {
+    return (
+      <span className="rounded-full bg-secondary/50 px-3 py-1 text-xs font-semibold text-muted-foreground">
+        24H --
+      </span>
+    );
+  }
+
+  const positive = change.tone === "positive";
+  const negative = change.tone === "negative";
+  const Icon = positive ? TrendingUp : negative ? TrendingDown : TriangleAlert;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+        positive && "bg-success/15 text-success",
+        negative && "bg-destructive/15 text-destructive",
+        !positive && !negative && "bg-secondary/50 text-muted-foreground",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span className="font-mono tabular-nums">
+        {formatFiatValue(change.absoluteUsd, { signed: true, compact: true })}
+      </span>
+      <span className="font-mono tabular-nums">
+        {formatPercentValue(change.percent, true)}
+      </span>
+    </span>
+  );
+}
+
+function PortfolioMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-background/45 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 truncate font-mono text-sm font-semibold tabular-nums">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function PortfolioTooltip({
+  active,
+  payload,
+  baselineUsd,
+  tone,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number | string | null }>;
+  baselineUsd?: number | null;
+  tone?: "positive" | "negative" | "neutral";
+}) {
+  if (!active || !payload?.length) return null;
+
+  const rawValue = payload[0]?.value;
+  const value = typeof rawValue === "number" ? rawValue : null;
+  const delta =
+    value != null && typeof baselineUsd === "number" ? value - baselineUsd : null;
+  const deltaPositive = delta != null && delta > 0;
+  const deltaNegative = delta != null && delta < 0;
+  const DeltaIcon = deltaPositive ? TrendingUp : deltaNegative ? TrendingDown : null;
+
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
+      <p className="font-mono text-sm font-semibold tabular-nums">
+        {value != null ? formatFiatValue(value) : "--"}
+      </p>
+      {delta != null ? (
+        <p
+          className={cn(
+            "mt-0.5 flex items-center gap-1 font-mono font-semibold tabular-nums",
+            deltaPositive && "text-success",
+            deltaNegative && "text-destructive",
+            !deltaPositive && !deltaNegative && "text-muted-foreground",
+            tone === "neutral" && !deltaPositive && !deltaNegative && "text-muted-foreground",
+          )}
+        >
+          {DeltaIcon ? <DeltaIcon className="h-3 w-3" aria-hidden="true" /> : null}
+          {formatFiatValue(delta, { signed: true })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function formatTokenHolding(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "0";
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: value >= 1 ? 4 : 6,
+  }).format(value);
+}

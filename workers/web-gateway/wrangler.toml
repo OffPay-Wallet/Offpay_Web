@@ -29,6 +29,7 @@ enabled = true
 # npx wrangler secret put ALCHEMY_MAINNET_FALLBACK_RPC_URL --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put ALCHEMY_DEVNET_WS_URL --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put ALCHEMY_MAINNET_WS_URL --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put ALCHEMY_PRICE_API_ORIGIN --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put ALCHEMY_PRICE_API_KEY --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put JUPITER_API_KEY --config workers/web-gateway/wrangler.toml
 #
