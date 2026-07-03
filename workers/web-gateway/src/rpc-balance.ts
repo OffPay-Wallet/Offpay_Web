@@ -97,7 +97,7 @@ function configuredUrl(value: string | undefined): string | null {
   return trimmed && /^https:\/\//i.test(trimmed) ? trimmed : null;
 }
 
-function rpcProviderConfig(env: GatewayEnv, cluster: SolanaCluster): RpcProviderConfig {
+export function rpcProviderConfig(env: GatewayEnv, cluster: SolanaCluster): RpcProviderConfig {
   if (cluster === "solana:devnet") {
     const expectedKeys = [
       "HELIUS_DEVNET_RPC_URL",
@@ -148,7 +148,7 @@ function metadataRpcUrl(env: GatewayEnv, cluster: SolanaCluster): string | null 
   return null;
 }
 
-async function rpcRequest(url: string, method: string, params: unknown): Promise<unknown> {
+export async function rpcRequest(url: string, method: string, params: unknown): Promise<unknown> {
   const response = await fetch(url, {
     method: "POST",
     headers: {

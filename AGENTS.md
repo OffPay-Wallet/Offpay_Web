@@ -15,6 +15,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Worker runtime config must be read from Cloudflare bindings in `workers/web-gateway/src/types.ts`; set values with Wrangler secrets or Cloudflare dashboard env vars, not `[vars]` literals in `wrangler.toml`.
 - Keep `.env.example` exhaustive but value-empty for deploy-specific URLs/secrets. Keep real values only in `.env`, the hosting provider env settings, or Cloudflare Worker secrets.
 - When adding a new endpoint or secret, add the key to `.env.example`, `.env` with an empty default if no value is known, the typed config accessor/binding, and deployment notes.
+- No source file should exceed 400 lines of code. Split larger files into focused modules or extract components/helpers to stay under the limit.
 
 ## Gateway Worker Deployment
 

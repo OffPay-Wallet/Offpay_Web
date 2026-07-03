@@ -117,7 +117,7 @@ export function AppSidebar() {
                       "transition-colors duration-150 focus-visible:outline-none",
                       "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       "focus-visible:ring-offset-card hover:text-foreground motion-reduce:transition-none",
-                      collapsed && "md:w-11 md:justify-center md:px-0",
+                      collapsed && "md:justify-center md:px-0",
                       active && "offpay-sidebar-link-active rounded-none",
                       active &&
                         !collapsed &&

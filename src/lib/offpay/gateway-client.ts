@@ -3,8 +3,11 @@ import type {
   MarketTokenPriceHistoryRequest,
   MarketTokenPricesBatchRequest,
   MarketTokenPricesBatchResponse,
+  ReadWalletTransactionsInput,
   SolanaCluster,
+  SwapTokenListResponse,
   WalletPortfolio,
+  WalletTransactionsResponse,
   WebApiEnvelope,
   WebWalletCustody,
   WebSession,
@@ -328,6 +331,43 @@ export async function readGatewayTokenPricesBatch(
     context: {
       network: input.network,
       tokenCount: input.tokens.length,
+    },
+  });
+}
+
+export async function readGatewaySwapTokens(
+  gatewayOrigin: string,
+): Promise<WebApiEnvelope<SwapTokenListResponse>> {
+  return requestGateway<SwapTokenListResponse>({
+    gatewayOrigin,
+    label: "swap.tokens",
+    path: "/web/swap/tokens",
+    init: {
+      method: "GET",
+      credentials: "include",
+    },
+  });
+}
+
+export async function readGatewayWalletTransactions(
+  gatewayOrigin: string,
+  input: ReadWalletTransactionsInput,
+): Promise<WebApiEnvelope<WalletTransactionsResponse>> {
+  const searchParams = new URLSearchParams({
+    address: input.walletAddress,
+    network: input.network,
+  });
+  if (input.limit) searchParams.set("limit", String(input.limit));
+  if (input.before) searchParams.set("before", input.before);
+
+  return requestGateway<WalletTransactionsResponse>({
+    gatewayOrigin,
+    label: "public_transactions",
+    path: `/web/public/transactions?${searchParams.toString()}`,
+    init: { method: "GET", credentials: "include" },
+    context: {
+      network: input.network,
+      walletAddress: redactIdentifier(input.walletAddress),
     },
   });
 }

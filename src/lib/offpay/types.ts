@@ -63,6 +63,29 @@ export type WalletPortfolio = {
   tokens: WalletTokenBalance[];
 };
 
+export type WalletTransactionSignature = {
+  signature: string;
+  slot: number | null;
+  blockTime: number | null;
+  memo: string | null;
+  failed: boolean;
+  confirmationStatus: string | null;
+};
+
+export type WalletTransactionsResponse = {
+  address: string;
+  cluster: SolanaCluster;
+  fetchedAt: string;
+  signatures: WalletTransactionSignature[];
+};
+
+export type ReadWalletTransactionsInput = {
+  walletAddress: string;
+  network: SolanaCluster;
+  limit?: number;
+  before?: string;
+};
+
 export type MarketPriceIdentifier =
   | {
       type: "symbol";
@@ -111,6 +134,21 @@ export type MarketTokenPriceHistoryRequest = {
   endTime: string;
   interval: MarketHistoricalPriceInterval;
   withMarketData?: boolean;
+};
+
+export type SwapTokenInfo = {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  logoURI: string | null;
+  verified?: boolean;
+  tags?: string[];
+};
+
+export type SwapTokenListResponse = {
+  tokens: SwapTokenInfo[];
+  fetchedAt: number;
 };
 
 export type WebGatewayRequestContext = {

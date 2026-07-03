@@ -110,6 +110,14 @@ export const manualWorkflowRoutes = [
   },
   {
     method: "GET",
+    path: "/web/public/transactions",
+    capability: "wallet-history",
+    implemented: true,
+    public: true,
+    configGroups: ["devnet-rpc-http", "mainnet-rpc-http"],
+  },
+  {
+    method: "GET",
     path: "/web/balances",
     capability: "wallet-balance",
     implemented: true,
@@ -160,9 +168,9 @@ export const manualWorkflowRoutes = [
     method: "GET",
     path: "/web/swap/tokens",
     capability: "swap-token-list",
-    implemented: false,
-    public: false,
-    configGroups: ["session", "jupiter", "offpay-token-mints"],
+    implemented: true,
+    public: true,
+    configGroups: ["jupiter"],
   },
   {
     method: "GET",

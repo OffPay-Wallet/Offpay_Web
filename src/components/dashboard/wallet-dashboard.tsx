@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { DashboardSwapCard } from "@/components/dashboard/dashboard-swap-card";
+import { HistoryCard } from "@/components/dashboard/history-card";
 import {
   PortfolioPerformanceCard,
   type PortfolioPricingState,
@@ -11,6 +12,7 @@ import {
 import { PublicAssetsCard } from "@/components/dashboard/public-assets-card";
 import { ShieldedAssetsCard } from "@/components/dashboard/shielded-assets-card";
 import { WalletDashboardHeader } from "@/components/dashboard/wallet-dashboard-header";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
 import { getErrorMessage } from "@/lib/offpay/display";
 import { debugLog, debugWarn, redactIdentifier } from "@/lib/offpay/debug";
@@ -52,6 +54,9 @@ export function WalletDashboard() {
 
   const cluster = getPublicSolanaCluster();
   const gatewayOrigin = getGatewayOrigin();
+  // Swap is a mainnet-only feature. On other clusters the Shielded card takes
+  // the swap slot; the swap card returns automatically once mainnet is active.
+  const swapAvailable = cluster === "solana:mainnet";
   const sessionReady = Boolean(
     session &&
       session.identity.address === walletAddress &&
@@ -342,7 +347,7 @@ export function WalletDashboard() {
         loading={Boolean(walletAddress && balancesQuery.isLoading)}
       />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)]">
+      <BentoGrid className="items-stretch xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)]">
         <PortfolioPerformanceCard
           cluster={cluster}
           gatewayOrigin={gatewayOrigin}
@@ -354,16 +359,18 @@ export function WalletDashboard() {
           walletAddress={walletAddress}
         />
 
-        <DashboardSwapCard
-          cluster={cluster}
-          holdings={portfolioPricing?.holdings ?? []}
-          priceError={portfolioPricing?.priceError ?? null}
-          unitUsdPrices={portfolioPricing?.valuation.unitUsdPrices ?? {}}
-          walletAddress={walletAddress}
-        />
-      </div>
-
-      <ShieldedAssetsCard />
+        {swapAvailable ? (
+          <DashboardSwapCard
+            cluster={cluster}
+            holdings={portfolioPricing?.holdings ?? []}
+            priceError={portfolioPricing?.priceError ?? null}
+            unitUsdPrices={portfolioPricing?.valuation.unitUsdPrices ?? {}}
+            walletAddress={walletAddress}
+          />
+        ) : (
+          <ShieldedAssetsCard />
+        )}
+      </BentoGrid>
 
       <PublicAssetsCard
         cluster={cluster}
@@ -374,6 +381,13 @@ export function WalletDashboard() {
         isLoading={balancesQuery.isLoading}
         onRetry={() => void balancesQuery.refetch()}
         portfolio={portfolio}
+        unitUsdPrices={portfolioPricing?.valuation.unitUsdPrices ?? {}}
+        walletAddress={walletAddress}
+      />
+
+      <HistoryCard
+        cluster={cluster}
+        gatewayOrigin={gatewayOrigin}
         walletAddress={walletAddress}
       />
     </section>

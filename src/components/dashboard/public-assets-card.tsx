@@ -1,10 +1,14 @@
 import { Coins, RefreshCw, TriangleAlert } from "lucide-react";
 
-import { AssetRow } from "@/components/dashboard/asset-row";
+import { AssetRow, assetRowGridClass } from "@/components/dashboard/asset-row";
 import { Button } from "@/components/ui/button";
-import { getErrorMessage, formatCluster } from "@/lib/offpay/display";
-import { formatTokenAmount, nativeSolMeta, resolveTokenMeta } from "@/lib/offpay/tokens";
+import { getErrorMessage } from "@/lib/offpay/display";
+import { nativeSolMint } from "@/lib/offpay/portfolio-valuation";
+import { nativeSolMeta, resolveTokenMeta } from "@/lib/offpay/tokens";
 import type { SolanaCluster, WalletPortfolio, WalletTokenBalance } from "@/lib/offpay/types";
+import { cn } from "@/lib/utils";
+
+const emptyUnitUsdPrices: Readonly<Record<string, number>> = Object.freeze({});
 
 export function PublicAssetsCard({
   cluster,
@@ -15,6 +19,7 @@ export function PublicAssetsCard({
   isLoading,
   onRetry,
   portfolio,
+  unitUsdPrices = emptyUnitUsdPrices,
   walletAddress,
 }: {
   cluster: SolanaCluster;
@@ -25,18 +30,16 @@ export function PublicAssetsCard({
   isLoading: boolean;
   onRetry: () => void;
   portfolio: WalletPortfolio | undefined;
+  unitUsdPrices?: Readonly<Record<string, number>>;
   walletAddress: string | undefined;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card text-card-foreground">
-      <div className="flex items-center justify-between gap-3 border-b border-border p-5">
+    <section className="h-full overflow-hidden rounded-[28px] border border-border/60 bg-card/80 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 p-5">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Coins className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           Public assets
         </h2>
-        <span className="text-xs font-medium uppercase text-muted-foreground">
-          {formatCluster(cluster)}
-        </span>
       </div>
       <PublicAssetsContent
         cluster={cluster}
@@ -47,9 +50,26 @@ export function PublicAssetsCard({
         isLoading={isLoading}
         onRetry={onRetry}
         portfolio={portfolio}
+        unitUsdPrices={unitUsdPrices}
         walletAddress={walletAddress}
       />
     </section>
+  );
+}
+
+function AssetTableHeader() {
+  return (
+    <div
+      className={cn(
+        assetRowGridClass,
+        "hidden border-b border-border/60 px-4 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:grid",
+      )}
+    >
+      <span>Asset</span>
+      <span>Balance</span>
+      <span>Value</span>
+      <span aria-hidden="true" />
+    </div>
   );
 }
 
@@ -62,6 +82,7 @@ function PublicAssetsContent({
   isLoading,
   onRetry,
   portfolio,
+  unitUsdPrices,
   walletAddress,
 }: {
   cluster: SolanaCluster;
@@ -72,6 +93,7 @@ function PublicAssetsContent({
   isLoading: boolean;
   onRetry: () => void;
   portfolio: WalletPortfolio | undefined;
+  unitUsdPrices: Readonly<Record<string, number>>;
   walletAddress: string | undefined;
 }) {
   if (!walletAddress) {
@@ -136,34 +158,38 @@ function PublicAssetsContent({
   }
 
   return (
-    <div className="divide-y divide-border">
-      <AssetRow
-        name={nativeSolMeta.name}
-        symbol={nativeSolMeta.symbol}
-        logo={portfolio.sol.logo}
-        amount={formatTokenAmount(portfolio.sol.uiAmount)}
-        subLabel="Native balance"
-      />
-      {portfolio.tokens.map((token: WalletTokenBalance) => {
-        const meta = resolveTokenMeta(cluster, token.mint);
-        const symbol = token.symbol ?? meta.symbol;
+    <div>
+      <AssetTableHeader />
+      <div className="divide-y divide-border">
+        <AssetRow
+          name={nativeSolMeta.name}
+          symbol={nativeSolMeta.symbol}
+          logo={portfolio.sol.logo}
+          uiAmount={portfolio.sol.uiAmount}
+          priceUsd={unitUsdPrices[nativeSolMint] ?? null}
+        />
+        {portfolio.tokens.map((token: WalletTokenBalance) => {
+          const meta = resolveTokenMeta(cluster, token.mint);
+          const symbol = token.symbol ?? meta.symbol;
+          const uiAmount = token.uiAmount ?? Number(token.uiAmountString);
 
-        return (
-          <AssetRow
-            key={`${token.programId ?? "api-worker"}:${token.mint}`}
-            name={token.name ?? meta.name}
-            symbol={symbol}
-            logo={token.logo}
-            amount={formatTokenAmount(token.uiAmount)}
-            subLabel={symbol}
-          />
-        );
-      })}
-      {portfolio.tokens.length === 0 ? (
-        <p className="p-4 text-xs text-muted-foreground">
-          No SPL tokens found for this wallet.
-        </p>
-      ) : null}
+          return (
+            <AssetRow
+              key={`${token.programId ?? "api-worker"}:${token.mint}`}
+              name={token.name ?? meta.name}
+              symbol={symbol}
+              logo={token.logo}
+              uiAmount={Number.isFinite(uiAmount) ? uiAmount : null}
+              priceUsd={unitUsdPrices[token.mint] ?? null}
+            />
+          );
+        })}
+        {portfolio.tokens.length === 0 ? (
+          <p className="p-4 text-xs text-muted-foreground">
+            No SPL tokens found for this wallet.
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -157,29 +157,26 @@ export function DashboardSwapCard({
           </p>
         </div>
 
-        {exceedsBalance ? (
-          <p className="text-xs font-semibold text-destructive">
-            Amount exceeds your available balance.
-          </p>
-        ) : null}
+        <p
+          className="min-h-4 text-xs font-semibold leading-4 text-destructive"
+          aria-live="polite"
+          {...(exceedsBalance ? { role: "alert" } : {})}
+        >
+          {exceedsBalance ? "Amount exceeds your available balance." : ""}
+        </p>
 
         <div className="pt-2">
           {!swapAvailable ? (
-            <>
-              <span
-                className={cn(
-                  buttonVariants({ variant: "secondary" }),
-                  "w-full cursor-not-allowed opacity-60",
-                )}
-                aria-disabled="true"
-                title={`Swap is not available on ${networkLabel}`}
-              >
-                Unavailable on {networkLabel}
-              </span>
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                Swaps are only available on mainnet.
-              </p>
-            </>
+            <span
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "w-full cursor-not-allowed opacity-60",
+              )}
+              aria-disabled="true"
+              title={`Swap is not available on ${networkLabel}`}
+            >
+              Unavailable on {networkLabel}
+            </span>
           ) : canOpenSwap ? (
             <Link
               href={swapHref}
@@ -200,6 +197,9 @@ export function DashboardSwapCard({
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </span>
           )}
+          <p className="mt-2 min-h-4 text-center text-xs leading-4 text-muted-foreground">
+            {!swapAvailable ? "Swaps are only available on mainnet." : ""}
+          </p>
         </div>
       </form>
     </section>

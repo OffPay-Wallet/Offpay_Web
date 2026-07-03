@@ -22,6 +22,7 @@ import {
   marketTokenPriceHistoryBodySchema,
   resolveMarketTokenPricesBatch,
 } from "./market";
+import { JupiterGatewayError, fetchJupiterTokenList } from "./jupiter";
 import {
   appendServerTiming,
   durationSince,
@@ -33,6 +34,7 @@ import {
   roundedDurationMs,
 } from "./observability";
 import { fetchWalletPortfolioFromRpc, RpcBalanceError } from "./rpc-balance";
+import { fetchWalletSignaturesFromRpc } from "./rpc-transactions";
 import {
   createChallenge,
   createSessionToken,
@@ -64,6 +66,12 @@ const verifySchema = nonceSchema.extend({
 const publicBalancesSchema = z.object({
   address: z.string().min(32),
   network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
+});
+const publicTransactionsSchema = z.object({
+  address: z.string().min(32),
+  network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
+  limit: z.coerce.number().int().min(1).max(25).optional(),
+  before: z.string().min(1).max(128).optional(),
 });
 
 function sessionSecret(env: GatewayEnv): string | undefined {
@@ -437,6 +445,63 @@ app.get("/web/public/balances", zValidator("query", publicBalancesSchema), async
   });
 });
 
+app.get(
+  "/web/public/transactions",
+  zValidator("query", publicTransactionsSchema),
+  async (c) => {
+    const input = c.req.valid("query");
+    const startedAtMs = nowMs();
+
+    gatewayDebugLog(c, "public_transactions.start", {
+      cluster: input.network,
+      walletAddress: redactIdentifier(input.address),
+    });
+
+    try {
+      const result = await fetchWalletSignaturesFromRpc({
+        address: input.address,
+        cluster: input.network,
+        env: c.env,
+        limit: input.limit ?? 5,
+        ...(input.before ? { before: input.before } : {}),
+      });
+      const durationMs = durationSince(startedAtMs);
+
+      appendServerTiming(c, "transactions", durationMs);
+      gatewayDebugLog(c, "public_transactions.success", {
+        cluster: result.cluster,
+        durationMs: roundedDurationMs(durationMs),
+        signatureCount: result.signatures.length,
+        walletAddress: redactIdentifier(result.address),
+      });
+      return ok(c, result);
+    } catch (error) {
+      appendServerTiming(c, "transactions", durationSince(startedAtMs));
+
+      if (error instanceof RpcBalanceError) {
+        gatewayWarnLog(c, "public_transactions.rpc_error", {
+          code: error.code,
+          status: error.status,
+          walletAddress: redactIdentifier(input.address),
+        });
+        return fail(c, error.status, {
+          code: error.code,
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        });
+      }
+
+      gatewayWarnLog(c, "public_transactions.unknown_error", {
+        walletAddress: redactIdentifier(input.address),
+      });
+      return fail(c, 502, {
+        code: "transactions_unavailable",
+        message: "Unable to read wallet transactions from configured Solana RPC providers.",
+      });
+    }
+  },
+);
+
 app.get("/web/balances", requireSession, async (c) => {
   const session = c.get("session");
 
@@ -580,6 +645,40 @@ app.post(
     }
   },
 );
+
+app.get("/web/swap/tokens", async (c) => {
+  const startedAtMs = nowMs();
+
+  gatewayDebugLog(c, "swap.tokens.start", {});
+
+  try {
+    const tokens = await fetchJupiterTokenList(c.env);
+    const durationMs = durationSince(startedAtMs);
+
+    appendServerTiming(c, "swap", durationMs);
+    gatewayDebugLog(c, "swap.tokens.success", {
+      durationMs: roundedDurationMs(durationMs),
+      tokenCount: tokens.length,
+    });
+    return ok(c, { tokens, fetchedAt: Date.now() });
+  } catch (error) {
+    appendServerTiming(c, "swap", durationSince(startedAtMs));
+
+    if (error instanceof JupiterGatewayError) {
+      return fail(c, error.status, {
+        code: error.code,
+        message: error.message,
+        ...(error.details ? { details: error.details } : {}),
+      });
+    }
+
+    gatewayWarnLog(c, "swap.tokens.unknown_error");
+    return fail(c, 502, {
+      code: "swap_unavailable",
+      message: "Swap token list is unavailable.",
+    });
+  }
+});
 
 function manualRouteHandler(route: ManualWorkflowRoute) {
   return (c: Context<GatewayBindings>) =>
