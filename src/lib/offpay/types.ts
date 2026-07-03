@@ -1,5 +1,5 @@
 export type SolanaCluster = "solana:devnet" | "solana:testnet" | "solana:mainnet";
-export type WebWalletCustody = "external-solana";
+export type WebWalletCustody = "external-solana" | "privy-solana";
 
 export type OffpayFeature =
   | "home"

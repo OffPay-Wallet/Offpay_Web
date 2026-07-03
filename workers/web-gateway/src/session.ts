@@ -18,7 +18,7 @@ const challengeTtlMs = 1000 * 60 * 5;
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
-const walletCustodySchema = z.literal("external-solana");
+const walletCustodySchema = z.enum(["external-solana", "privy-solana"]);
 
 const challengePayloadSchema = z.object({
   type: z.literal("offpay-web-challenge"),

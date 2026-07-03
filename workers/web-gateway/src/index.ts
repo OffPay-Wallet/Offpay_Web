@@ -42,7 +42,7 @@ const exposedHeaders =
 const nonceSchema = z.object({
   walletAddress: z.string().min(32),
   network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
-  custody: z.literal("external-solana").default("external-solana"),
+  custody: z.enum(["external-solana", "privy-solana"]).default("external-solana"),
   deviceId: z.string().min(1).optional(),
 });
 

@@ -18,6 +18,7 @@ import {
   offpayAppIconPath,
   offpayPrivyLogoPath,
 } from "@/lib/offpay/public-config";
+import { shouldCreateSolanaEmbeddedWalletOnLogin } from "@/lib/offpay/privy-wallet-policy";
 
 const privyLoginMethods = [
   "email",
@@ -36,13 +37,13 @@ const solanaWalletList = [
 ] satisfies NonNullable<NonNullable<PrivyClientConfig["appearance"]>["walletList"]>;
 
 const solanaWalletConnectors = toSolanaWalletConnectors({
-  // Keep external wallet sessions available after login. Embedded wallet
-  // creation is explicitly disabled below.
-  shouldAutoConnect: true,
+  // Keep extension wallets available in Privy's modal, but require an explicit
+  // user action before restoring any browser wallet connection.
+  shouldAutoConnect: false,
 });
 
-const disableEmbeddedWalletCreationPlugin = createWalletCreationOnLoginPlugin({
-  shouldCreateWallet: () => false,
+const solanaEmbeddedWalletCreationPlugin = createWalletCreationOnLoginPlugin({
+  shouldCreateWallet: shouldCreateSolanaEmbeddedWalletOnLogin,
 });
 
 const externalWalletsConfig = {
@@ -64,13 +65,13 @@ function buildPrivyConfig(): PrivyClientConfig {
       walletList: solanaWalletList,
     },
     externalWallets: externalWalletsConfig,
-    plugins: [disableEmbeddedWalletCreationPlugin],
+    plugins: [solanaEmbeddedWalletCreationPlugin],
     embeddedWallets: {
       ethereum: {
         createOnLogin: "off",
       },
       solana: {
-        createOnLogin: "off",
+        createOnLogin: "all-users",
       },
       showWalletUIs: false,
     },

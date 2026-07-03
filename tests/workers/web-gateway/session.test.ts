@@ -26,6 +26,18 @@ describe("gateway session helpers", () => {
     expect(challenge.expiresAt).toBe("2026-07-02T00:05:00.000Z");
   });
 
+  it("supports Privy Solana embedded wallet challenges", async () => {
+    const challenge = await createChallenge({
+      walletAddress: "11111111111111111111111111111111",
+      network: "solana:devnet",
+      custody: "privy-solana",
+      secret,
+      now: new Date("2026-07-02T00:00:00.000Z"),
+    });
+
+    expect(challenge.message).toContain("Custody: privy-solana");
+  });
+
   it("round-trips a signed session token", async () => {
     const session: WebSession = {
       id: "session_1234567890",

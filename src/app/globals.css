@@ -93,56 +93,198 @@ body {
 }
 
 @supports selector(:has(*)) {
+  /* Keep Privy's login methods in the requested order:
+     recent method, email, compact socials, then wallet. */
+  body:has(#email-input) #privy-modal-content {
+    max-width: 100vw;
+  }
+
   body:has(#email-input)
     div:has(> button.login-method-button):has(#email-input) {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     align-items: center;
-    gap: 10px !important;
+    justify-items: center;
+    gap: 12px !important;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
   }
 
+  /* The headless email field spans the full modal width. */
   body:has(#email-input)
     div:has(> button.login-method-button):has(#email-input)
     > div:has(#email-input) {
     order: 1;
     grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
   }
 
+  /* Non-recent socials become compact icon boxes in a two-column row. */
   body:has(#email-input)
     div:has(> button.login-method-button):has(#email-input)
-    > button.login-method-button:not(:last-of-type) {
+    > button.login-method-button:not(:last-of-type):not(:has(> :nth-child(3))) {
     order: 2;
-    justify-self: center;
-    width: 58px !important;
-    min-width: 58px;
-    height: 58px;
-    min-height: 58px;
+    justify-self: stretch;
+    width: 100% !important;
+    min-width: 0;
+    height: 56px !important;
+    min-height: 56px !important;
     padding: 0 !important;
-    border-radius: 999px !important;
+    border-radius: var(--privy-border-radius-md) !important;
     justify-content: center;
+    align-items: center;
     gap: 0;
     font-size: 0;
     line-height: 0;
+    overflow: hidden;
   }
 
   body:has(#email-input)
     div:has(> button.login-method-button):has(#email-input)
-    > button.login-method-button:not(:last-of-type)
+    > button.login-method-button:not(:last-of-type):not(:has(> :nth-child(3)))
     > :first-child {
     margin: 0;
   }
 
+  /* Hide labels only in compact social boxes. */
   body:has(#email-input)
     div:has(> button.login-method-button):has(#email-input)
-    > button.login-method-button:not(:last-of-type)
+    > button.login-method-button:not(:last-of-type):not(:has(> :nth-child(3)))
     > :not(:first-child) {
     display: none !important;
   }
 
+  /* Wallet remains the final full-width action. */
   body:has(#email-input)
     div:has(> button.login-method-button):has(#email-input)
-    > button.login-method-button:last-of-type {
+    > button.login-method-button:last-of-type:not(:has(> :nth-child(3))) {
     order: 3;
     grid-column: 1 / -1;
+    width: 100% !important;
+    min-width: 0;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+
+  /* Privy's recently-used social method is promoted above email and keeps its label. */
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button.login-method-button:has(> :nth-child(3)) {
+    order: 0;
+    grid-column: 1 / -1;
+    width: 100% !important;
+    min-width: 0;
+    height: 56px;
+    min-height: 56px;
+    padding: 10px 12px !important;
+    border-radius: var(--privy-border-radius-md) !important;
+    justify-content: flex-start;
+    justify-self: stretch;
+    gap: 12px;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  /* Privy's recently-used wallet row uses a different wallet button component. */
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button:not(.login-method-button) {
+    order: 0;
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100% !important;
+    min-width: 0;
+    height: 56px !important;
+    min-height: 56px !important;
+    padding: 10px 12px !important;
+    border-radius: var(--privy-border-radius-md) !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button:not(.login-method-button)
+    > :first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 8px;
+    background: var(--privy-color-background-2);
+    overflow: visible;
+  }
+
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button:not(.login-method-button)
+    > :first-child
+    img,
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button:not(.login-method-button)
+    > :first-child
+    svg {
+    display: block;
+    width: 28px !important;
+    height: 28px !important;
+    max-width: 28px !important;
+    max-height: 28px !important;
+    object-fit: contain;
+  }
+
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button:not(.login-method-button)
+    > :nth-child(2) {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button:not(.login-method-button)
+    > :nth-child(3) {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+
+  body:has(#email-input)
+    div:has(> button.login-method-button):has(#email-input)
+    > button.login-method-button:has(> :nth-child(3))
+    > :last-child {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 440px) {
+    body:has(#email-input)
+      div:has(> button.login-method-button):has(#email-input)
+      > button.login-method-button:has(> :nth-child(3)) {
+      font-size: 14px;
+    }
+
+    body:has(#email-input)
+      div:has(> button.login-method-button):has(#email-input)
+      > button:not(.login-method-button) {
+      font-size: 14px;
+    }
   }
 }

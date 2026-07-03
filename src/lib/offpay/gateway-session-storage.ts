@@ -14,7 +14,7 @@ type StoredGatewaySession = {
   sessionToken: string;
 };
 
-const storageKeyPrefix = "offpay.web.gatewaySession.v1";
+export const gatewaySessionStorageKeyPrefix = "offpay.web.gatewaySession.v1";
 
 function browserSessionStorage(): SessionStorageLike | null {
   if (typeof window === "undefined") {
@@ -30,7 +30,7 @@ function browserSessionStorage(): SessionStorageLike | null {
 
 function storageKey({ cluster, gatewayOrigin, walletAddress }: GatewaySessionStorageKey): string {
   return [
-    storageKeyPrefix,
+    gatewaySessionStorageKeyPrefix,
     encodeURIComponent(gatewayOrigin),
     cluster,
     walletAddress,

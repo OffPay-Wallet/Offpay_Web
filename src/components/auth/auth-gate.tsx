@@ -2,10 +2,11 @@
 
 import { useLogin, useModalStatus, usePrivy } from "@privy-io/react-auth";
 import Image from "next/image";
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { offpayAppIconPath } from "@/lib/offpay/public-config";
+import { clearBrowserWalletSessionState } from "@/lib/offpay/browser-session-cleanup";
+import { getPrivyAppId, offpayAppIconPath } from "@/lib/offpay/public-config";
 
 type AuthGateProps = {
   children: ReactNode;
@@ -15,17 +16,27 @@ export function AuthGate({ children }: AuthGateProps) {
   const { authenticated, ready } = usePrivy();
   const { isOpen } = useModalStatus();
   const { login } = useLogin();
+  const [preparingLogin, setPreparingLogin] = useState(false);
+  const privyAppId = getPrivyAppId();
 
-  const openLogin = useCallback(() => {
-    if (!ready || authenticated) {
+  const openLogin = useCallback(async () => {
+    if (!ready || authenticated || preparingLogin) {
       return;
+    }
+
+    setPreparingLogin(true);
+
+    try {
+      await clearBrowserWalletSessionState({ privyAppId });
+    } finally {
+      setPreparingLogin(false);
     }
 
     login({
       loginMethods: ["email", "google", "twitter", "wallet"],
       walletChainType: "solana-only",
     });
-  }, [authenticated, login, ready]);
+  }, [authenticated, login, preparingLogin, privyAppId, ready]);
 
   if (ready && authenticated) {
     return <>{children}</>;
@@ -72,7 +83,7 @@ export function AuthGate({ children }: AuthGateProps) {
                 <span className="block text-muted-foreground">Review before signature.</span>
               </h1>
               <p className="text-base leading-7 text-muted-foreground sm:text-lg">
-                Sign in with Privy, then connect an existing Solana wallet.
+                Sign in with social or email to create a Solana wallet, or use an existing wallet.
                 <span className="block">Every value-moving action stays a draft until you sign.</span>
               </p>
             </div>
@@ -80,8 +91,9 @@ export function AuthGate({ children }: AuthGateProps) {
               <Button
                 type="button"
                 aria-haspopup="dialog"
-                onClick={openLogin}
-                disabled={isOpen}
+                onClick={() => void openLogin()}
+                disabled={isOpen || preparingLogin}
+                loading={preparingLogin}
                 className="h-12 w-full min-w-72 max-w-sm rounded-full bg-foreground px-10 text-base font-semibold text-background shadow-lg shadow-foreground/10 hover:bg-foreground/90 sm:min-w-96"
               >
                 Get started

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useConnectWallet,
-  usePrivy,
-} from "@privy-io/react-auth";
+import { useLogout, usePrivy } from "@privy-io/react-auth";
 import {
   type ConnectedStandardSolanaWallet,
   useWallets,
@@ -15,11 +12,10 @@ import {
   Coins,
   Copy,
   LockKeyhole,
-  LogOut,
   RefreshCw,
   ShieldCheck,
   TriangleAlert,
-  Wallet,
+  Unplug,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -27,6 +23,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { clearBrowserWalletSessionState } from "@/lib/offpay/browser-session-cleanup";
 import { debugLog, debugWarn, redactIdentifier } from "@/lib/offpay/debug";
 import {
   readGatewayBalances,
@@ -37,12 +34,16 @@ import {
   clearStoredGatewaySession,
   readStoredGatewaySession,
 } from "@/lib/offpay/gateway-session-storage";
-import { getGatewayOrigin, getPublicSolanaCluster } from "@/lib/offpay/public-config";
+import {
+  getGatewayOrigin,
+  getPrivyAppId,
+  getPublicSolanaCluster,
+} from "@/lib/offpay/public-config";
+import { preferredWalletCustodyForUser } from "@/lib/offpay/privy-wallet-policy";
 import { formatTokenAmount, nativeSolMeta, resolveTokenMeta } from "@/lib/offpay/tokens";
-import type { WalletTokenBalance, WebSession } from "@/lib/offpay/types";
+import type { WalletTokenBalance, WebSession, WebWalletCustody } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
 
-type PendingAction = "logout";
 type SessionReadState = "idle" | "loading" | "ready" | "missing" | "error";
 
 function getErrorMessage(error: unknown): string {
@@ -72,6 +73,26 @@ function formatCluster(cluster: string): string {
 
 function isPrivyEmbeddedSolanaWallet(wallet: ConnectedStandardSolanaWallet): boolean {
   return Boolean((wallet.standardWallet as { isPrivyWallet?: boolean }).isPrivyWallet);
+}
+
+function walletCustodyForWallet(wallet?: ConnectedStandardSolanaWallet): WebWalletCustody | undefined {
+  if (!wallet) {
+    return undefined;
+  }
+
+  return isPrivyEmbeddedSolanaWallet(wallet) ? "privy-solana" : "external-solana";
+}
+
+function formatWalletCustody(custody?: WebWalletCustody): string | null {
+  if (custody === "privy-solana") {
+    return "Privy Solana";
+  }
+
+  if (custody === "external-solana") {
+    return "External Solana";
+  }
+
+  return null;
 }
 
 function AssetAvatar({ symbol, native = false }: { symbol: string; native?: boolean }) {
@@ -130,36 +151,114 @@ function AssetRow({
 }
 
 export function WalletDashboard() {
-  const { authenticated, logout, ready } = usePrivy();
-  const { connectWallet } = useConnectWallet();
+  const {
+    authenticated,
+    ready,
+    user,
+  } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
-  const [pending, setPending] = useState<PendingAction | null>(null);
   const [session, setSession] = useState<WebSession | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sessionReadState, setSessionReadState] = useState<SessionReadState>("idle");
   const [, setSessionSyncError] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const cluster = getPublicSolanaCluster();
   const gatewayOrigin = getGatewayOrigin();
+  const privyAppId = getPrivyAppId();
   const externalWallets = useMemo(
     () => wallets.filter((wallet) => !isPrivyEmbeddedSolanaWallet(wallet)),
     [wallets],
   );
+  const embeddedWallets = useMemo(
+    () => wallets.filter((wallet) => isPrivyEmbeddedSolanaWallet(wallet)),
+    [wallets],
+  );
+  const preferredWalletCustody = useMemo(() => preferredWalletCustodyForUser(user), [user]);
   const activeWallet = useMemo<ConnectedStandardSolanaWallet | undefined>(() => {
-    return externalWallets[0];
-  }, [externalWallets]);
+    if (preferredWalletCustody === "external-solana") {
+      return externalWallets[0];
+    }
+
+    if (preferredWalletCustody === "privy-solana") {
+      return embeddedWallets[0];
+    }
+
+    return undefined;
+  }, [embeddedWallets, externalWallets, preferredWalletCustody]);
   const activeWalletAddress = activeWallet?.address;
   const walletAddress = activeWalletAddress;
-  const walletCustody = walletAddress ? "external-solana" : undefined;
+  const walletCustody = walletCustodyForWallet(activeWallet);
+  const walletCustodyLabel = formatWalletCustody(walletCustody);
   const signerReady = Boolean(activeWallet);
   const sessionReady = Boolean(
     session &&
       session.identity.address === walletAddress &&
       session.identity.custody === walletCustody,
   );
-  const walletCount = externalWallets.length;
-  const connectedWalletAddresses = externalWallets.map((wallet) => wallet.address).join(",");
-  const ignoredEmbeddedWalletCount = wallets.length - externalWallets.length;
+  const walletCount = wallets.length;
+  const externalWalletCount = externalWallets.length;
+  const embeddedWalletCount = embeddedWallets.length;
+  const connectedWalletAddresses = wallets.map((wallet) => wallet.address).join(",");
+
+  const { logout } = useLogout({
+    onSuccess: () => {
+      void clearBrowserWalletSessionState({ privyAppId });
+
+      if (gatewayOrigin) {
+        wallets.forEach((wallet) => {
+          clearStoredGatewaySession({
+            gatewayOrigin,
+            cluster,
+            walletAddress: wallet.address,
+          });
+        });
+      }
+
+      setSession(null);
+      setSessionToken(null);
+      setSessionSyncError(null);
+      setSessionReadState("idle");
+      toast.success("Disconnected");
+    },
+  });
+
+  const disconnectAccount = async () => {
+    if (!ready || disconnecting) {
+      return;
+    }
+
+    setDisconnecting(true);
+
+    try {
+      await clearBrowserWalletSessionState({ privyAppId });
+
+      const disconnectResults = await Promise.allSettled(
+        wallets.map((wallet) => wallet.disconnect()),
+      );
+      const failedDisconnects = disconnectResults.filter(
+        (result) => result.status === "rejected",
+      ).length;
+
+      if (failedDisconnects > 0) {
+        debugWarn("wallet.disconnect.partial_failure", {
+          failedDisconnects,
+          walletCount: wallets.length,
+        });
+      }
+
+      await clearBrowserWalletSessionState({ privyAppId });
+      await logout();
+      await clearBrowserWalletSessionState({ privyAppId });
+    } catch (error: unknown) {
+      debugWarn("account.disconnect.failed", {
+        error: getErrorMessage(error),
+      });
+      toast.error(getErrorMessage(error));
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   const balancesQuery = useQuery({
     queryKey: [
@@ -283,8 +382,10 @@ export function WalletDashboard() {
       balancesFetchEnabled: Boolean(gatewayOrigin && walletAddress),
       cluster,
       custody: walletCustody,
-      ignoredEmbeddedWalletCount,
+      embeddedWalletCount,
+      externalWalletCount,
       gatewayConfigured: Boolean(gatewayOrigin),
+      preferredWalletCustody,
       ready,
       sessionReadState,
       sessionReady,
@@ -302,8 +403,10 @@ export function WalletDashboard() {
     authenticated,
     cluster,
     connectedWalletAddresses,
+    embeddedWalletCount,
+    externalWalletCount,
     gatewayOrigin,
-    ignoredEmbeddedWalletCount,
+    preferredWalletCustody,
     ready,
     sessionReadState,
     sessionReady,
@@ -432,34 +535,11 @@ export function WalletDashboard() {
     toast.success("Wallet address copied");
   };
 
-  const handleLogout = async () => {
-    setPending("logout");
-
-    try {
-      if (gatewayOrigin && walletAddress) {
-        clearStoredGatewaySession({
-          gatewayOrigin,
-          cluster,
-          walletAddress,
-        });
-      }
-      await logout();
-      setSession(null);
-      setSessionToken(null);
-      setSessionSyncError(null);
-      toast.success("Signed out");
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    } finally {
-      setPending(null);
-    }
-  };
-
   const publicAssetsContent = () => {
     if (!walletAddress) {
       return (
         <p className="p-4 text-sm text-muted-foreground">
-          Connect a Solana wallet to view public balances.
+          Preparing your Solana wallet for public balances.
         </p>
       );
     }
@@ -558,7 +638,7 @@ export function WalletDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="neutral">{formatCluster(cluster)}</Badge>
-          {walletCustody ? <Badge tone="neutral">External Solana</Badge> : null}
+          {walletCustodyLabel ? <Badge tone="neutral">{walletCustodyLabel}</Badge> : null}
           {walletAddress ? (
             <button
               type="button"
@@ -576,11 +656,12 @@ export function WalletDashboard() {
             type="button"
             variant="outline"
             size="sm"
-            loading={pending === "logout"}
-            onClick={handleLogout}
+            disabled={!ready}
+            loading={disconnecting}
+            onClick={() => void disconnectAccount()}
           >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            Sign out
+            <Unplug className="h-4 w-4" aria-hidden="true" />
+            Disconnect
           </Button>
         </div>
       </div>
@@ -669,16 +750,8 @@ export function WalletDashboard() {
         {!walletAddress ? (
           <div className="mt-5 flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              No external Solana wallet is connected to this Privy account.
+              Preparing your Privy Solana wallet for this account.
             </p>
-            <Button
-              type="button"
-              disabled={!ready}
-              onClick={() => connectWallet()}
-            >
-              <Wallet className="h-4 w-4" aria-hidden="true" />
-              Connect wallet
-            </Button>
           </div>
         ) : null}
       </div>
