@@ -48,7 +48,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${quicksand.variable} ${cirka.variable} h-full antialiased`}
+      className={`${quicksand.variable} ${cirka.variable} dark h-full antialiased`}
     >
       <body className="flex min-h-full flex-col" suppressHydrationWarning>
         <OffpayWebVitals />

@@ -14,7 +14,7 @@ export function PageHeader({
   title: string;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+    <header className="flex flex-col gap-4 pb-1 md:flex-row md:items-center md:justify-between">
       <div className="flex min-w-0 items-center gap-3">
         {icon ? <div className="shrink-0">{icon}</div> : null}
         <div className="min-w-0">

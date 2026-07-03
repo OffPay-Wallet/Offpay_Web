@@ -12,6 +12,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
 import { AuthGate } from "@/components/auth/auth-gate";
+import { offpayColorTokens } from "@/lib/offpay/color-tokens";
 import {
   getPrivyAppId,
   getPrivyClientId,
@@ -59,6 +60,8 @@ function buildPrivyConfig(): PrivyClientConfig {
   return {
     loginMethods: privyLoginMethods,
     appearance: {
+      theme: offpayColorTokens.night,
+      accentColor: offpayColorTokens.seasalt,
       logo: offpayPrivyLogoPath,
       showWalletLoginFirst: false,
       walletChainType: "solana-only",

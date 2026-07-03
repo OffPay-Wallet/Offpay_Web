@@ -29,7 +29,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="border-b border-border bg-card text-card-foreground md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r">
+    <aside className="shrink-0 border-b border-border bg-card text-card-foreground md:h-full md:w-64 md:border-b-0 md:border-r">
       <div className="flex gap-3 overflow-x-auto px-4 py-3 md:flex-col md:overflow-visible md:p-4">
         <Link
           href="/"

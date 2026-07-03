@@ -6,8 +6,8 @@ type BadgeTone = "neutral" | "success" | "warning" | "danger";
 
 const toneClassName: Record<BadgeTone, string> = {
   neutral: "border-border bg-secondary text-secondary-foreground",
-  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  success: "border-success/30 bg-success/10 text-success",
+  warning: "border-warning/30 bg-warning/10 text-warning",
   danger: "border-destructive/30 bg-destructive/10 text-destructive",
 };
 

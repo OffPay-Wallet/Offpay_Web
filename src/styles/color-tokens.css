@@ -1,0 +1,69 @@
+:root,
+.dark {
+  color-scheme: dark;
+
+  --offpay-color-seasalt: #f8fafa;
+  --offpay-color-silver: #c5c6c8;
+  --offpay-color-gray: #818283;
+  --offpay-color-davys-gray: #4f5052;
+  --offpay-color-raisin-black: #282728;
+  --offpay-color-night: #0d0e10;
+  --offpay-color-red: #ef4444;
+
+  --background: var(--offpay-color-night);
+  --foreground: var(--offpay-color-seasalt);
+  --card: var(--offpay-color-raisin-black);
+  --card-foreground: var(--offpay-color-seasalt);
+  --popover: var(--offpay-color-raisin-black);
+  --popover-foreground: var(--offpay-color-seasalt);
+  --primary: var(--offpay-color-seasalt);
+  --primary-foreground: var(--offpay-color-night);
+  --secondary: var(--offpay-color-davys-gray);
+  --secondary-foreground: var(--offpay-color-seasalt);
+  --muted: var(--offpay-color-raisin-black);
+  --muted-foreground: var(--offpay-color-silver);
+  --accent: var(--offpay-color-davys-gray);
+  --accent-foreground: var(--offpay-color-seasalt);
+  --destructive: var(--offpay-color-red);
+  --destructive-foreground: var(--offpay-color-seasalt);
+  --border: var(--offpay-color-davys-gray);
+  --input: var(--offpay-color-davys-gray);
+  --ring: var(--offpay-color-seasalt);
+  --success: var(--offpay-color-seasalt);
+  --success-foreground: var(--offpay-color-night);
+  --warning: var(--offpay-color-silver);
+  --warning-foreground: var(--offpay-color-night);
+}
+
+@theme inline {
+  --color-offpay-seasalt: var(--offpay-color-seasalt);
+  --color-offpay-silver: var(--offpay-color-silver);
+  --color-offpay-gray: var(--offpay-color-gray);
+  --color-offpay-davys-gray: var(--offpay-color-davys-gray);
+  --color-offpay-raisin-black: var(--offpay-color-raisin-black);
+  --color-offpay-night: var(--offpay-color-night);
+  --color-offpay-red: var(--offpay-color-red);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+}

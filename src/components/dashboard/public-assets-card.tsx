@@ -110,7 +110,7 @@ function PublicAssetsContent({
     return (
       <div className="flex flex-col items-start gap-3 p-4">
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <TriangleAlert className="h-4 w-4 text-amber-600" aria-hidden="true" />
+          <TriangleAlert className="h-4 w-4 text-warning" aria-hidden="true" />
           {getErrorMessage(error)}
         </p>
         <Button

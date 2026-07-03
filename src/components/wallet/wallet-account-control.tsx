@@ -52,71 +52,79 @@ export function WalletAccountControl() {
 
   if (!walletAddress) {
     return (
-      <div className="flex h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted-foreground">
+      <div className="flex h-10 items-center rounded-md border border-border bg-background px-3 font-sans text-xs font-semibold text-muted-foreground">
         Preparing wallet
       </div>
     );
   }
 
-  const copyLabel =
+  const addressLabel = truncateAddress(walletAddress);
+  const CopyIcon = copyStatus === "copied" ? Check : Copy;
+  const copyStatusMessage =
     copyStatus === "copied"
-      ? "Copied"
+      ? "Wallet address copied"
       : copyStatus === "failed"
         ? "Copy failed"
-        : truncateAddress(walletAddress);
-  const CopyIcon = copyStatus === "copied" ? Check : Copy;
+        : null;
 
   return (
     <div className="min-w-0">
       <div
-        className="inline-flex max-w-full overflow-hidden rounded-full border border-border bg-background shadow-sm"
+        className="inline-flex max-w-full items-center gap-2 font-sans"
         aria-label="Wallet account"
       >
         <button
           type="button"
           onClick={copyAddress}
           className={cn(
-            "flex h-11 min-w-0 max-w-[13rem] items-center gap-2 bg-foreground px-4 text-background",
-            "text-sm font-bold transition-colors duration-150 focus-visible:outline-none",
+            "flex h-10 min-w-0 items-center gap-2 rounded-md px-2 text-foreground",
+            "cursor-pointer text-xs font-bold transition-colors duration-150 focus-visible:outline-none",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            copyStatus === "copied" && "bg-emerald-700 text-white dark:bg-emerald-500 dark:text-background",
+            copyStatus === "copied" && "text-success",
           )}
-          title="Copy wallet address"
           aria-label="Copy wallet address"
         >
           <span
-            className="min-w-0 truncate font-mono tabular-nums"
-            aria-live="polite"
+            className="w-28 min-w-0 truncate font-sans tabular-nums"
           >
-            {copyLabel}
+            {addressLabel}
           </span>
-          <CopyIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <CopyIcon
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              copyStatus === "copied" && "motion-safe:animate-bounce",
+            )}
+            aria-hidden="true"
+          />
         </button>
         <button
           type="button"
           onClick={() => void disconnectAccount()}
           disabled={disconnecting}
           className={cn(
-            "flex h-11 items-center gap-2 border-l border-border px-3 text-sm font-semibold",
-            "text-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground",
+            "flex h-10 w-10 items-center justify-center rounded-md text-destructive",
+            "cursor-pointer transition-colors duration-150",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "disabled:pointer-events-none disabled:opacity-50",
+            "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",
           )}
           aria-label="Disconnect wallet"
           aria-busy={disconnecting || undefined}
-          title={disconnectError ?? "Disconnect wallet"}
         >
           {disconnecting ? (
             <span
-              className="h-4 w-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
+              className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
               aria-hidden="true"
             />
           ) : (
             <Unplug className="h-4 w-4" aria-hidden="true" />
           )}
-          <span className="hidden sm:inline">Disconnect</span>
         </button>
       </div>
+      {copyStatusMessage ? (
+        <p className="sr-only" role="status">
+          {copyStatusMessage}
+        </p>
+      ) : null}
       {disconnectError ? (
         <p className="sr-only" role="status">
           Disconnect failed: {disconnectError}
