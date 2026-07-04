@@ -7,7 +7,6 @@ import type {
   SolanaCluster,
   SwapTokenListResponse,
   TokenMetadataResponse,
-  UmbraGatewayStatus,
   UmbraVaultHoldings,
   WalletPortfolio,
   WalletTransactionsResponse,
@@ -38,6 +37,11 @@ export type ReadPublicBalancesInput = {
   walletAddress: string;
   network: SolanaCluster;
   deviceId?: string;
+};
+
+export type ReadUmbraGatewayInput = {
+  walletAddress: string;
+  network: SolanaCluster;
 };
 
 export async function createSessionNonce(
@@ -132,46 +136,26 @@ export async function readGatewayBalances(
   });
 }
 
-export async function readGatewayUmbraStatus(
-  gatewayOrigin: string,
-  sessionToken?: string,
-): Promise<WebApiEnvelope<UmbraGatewayStatus>> {
-  const headers = new Headers();
-
-  if (sessionToken) {
-    headers.set("authorization", `Bearer ${sessionToken}`);
-  }
-
-  return requestGateway<UmbraGatewayStatus>({
-    gatewayOrigin,
-    label: "umbra.status",
-    path: "/web/umbra/status",
-    init: {
-      method: "GET",
-      credentials: "include",
-      headers,
-    },
-  });
-}
-
 export async function readGatewayUmbraVaultHoldings(
   gatewayOrigin: string,
-  sessionToken?: string,
+  input: ReadUmbraGatewayInput,
 ): Promise<WebApiEnvelope<UmbraVaultHoldings>> {
-  const headers = new Headers();
-
-  if (sessionToken) {
-    headers.set("authorization", `Bearer ${sessionToken}`);
-  }
+  const searchParams = new URLSearchParams({
+    address: input.walletAddress,
+    network: input.network,
+  });
 
   return requestGateway<UmbraVaultHoldings>({
     gatewayOrigin,
     label: "umbra.holdings",
-    path: "/web/umbra/holdings",
+    path: `/web/umbra/holdings?${searchParams.toString()}`,
     init: {
       method: "GET",
       credentials: "include",
-      headers,
+    },
+    context: {
+      network: input.network,
+      walletAddress: redactIdentifier(input.walletAddress),
     },
   });
 }

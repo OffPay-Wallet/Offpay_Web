@@ -6,7 +6,7 @@ import { GlobalNavbar } from "@/components/navigation/global-navbar";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <main className="bg-app-gradient h-dvh min-h-dvh overflow-hidden overscroll-none text-foreground">
-      <div className="flex h-full min-h-0 w-full flex-col gap-3 p-3 md:flex-row md:gap-4 md:p-4">
+      <div className="flex h-full min-h-0 w-full flex-col-reverse gap-3 p-3 md:flex-row md:gap-4 md:p-4">
         <AppSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <GlobalNavbar />

@@ -84,6 +84,16 @@ const configGroups = [
     allOf: ["UMBRA_CIRCUIT_VERSION", "UMBRA_MIN_SDK_VERSION", "UMBRA_LOCAL_TEST_MODE"],
   },
   {
+    id: "umbra-devnet-relayer",
+    description: "Umbra devnet relayer",
+    allOf: ["UMBRA_RELAYER_URL_DEVNET"],
+  },
+  {
+    id: "umbra-mainnet-relayer",
+    description: "Umbra mainnet relayer",
+    allOf: ["UMBRA_RELAYER_URL_MAINNET"],
+  },
+  {
     id: "magicblock",
     description: "MagicBlock validator allowlists",
     allOf: ["MAGICBLOCK_DEVNET_VALIDATORS", "MAGICBLOCK_MAINNET_VALIDATORS"],
@@ -450,16 +460,16 @@ export const manualWorkflowRoutes = [
     path: "/web/umbra/status",
     capability: "umbra-status",
     implemented: true,
-    public: false,
-    configGroups: ["session", "umbra-devnet", "umbra-mainnet", "umbra-runtime"],
+    public: true,
+    configGroups: ["umbra-devnet", "umbra-mainnet", "umbra-runtime"],
   },
   {
     method: "GET",
     path: "/web/umbra/holdings",
     capability: "umbra-holdings",
     implemented: true,
-    public: false,
-    configGroups: ["session", "umbra-devnet", "umbra-mainnet", "umbra-runtime"],
+    public: true,
+    configGroups: ["umbra-devnet-relayer", "umbra-mainnet-relayer"],
   },
   {
     method: "GET",

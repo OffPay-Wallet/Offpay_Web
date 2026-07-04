@@ -40,3 +40,12 @@ npm run worker:deploy
 ```
 
 `npx wrangler secret list --config workers/web-gateway/wrangler.toml` verifies secret names only; it cannot reveal secret values.
+
+## Umbra Gateway Debugging
+
+- Treat browser `umbra_relayer_unavailable` errors as a Worker upstream problem first; do not change the client UI until the Worker request path and configured upstream are verified.
+- Verify the current Umbra relayer info endpoint from the official Umbra SDK docs, then probe that endpoint directly with `curl` before changing code.
+- Compare three things before concluding root cause: the browser request ID/error, `workers/web-gateway/src/umbra-vault.ts` URL construction, and `npx wrangler secret list --config workers/web-gateway/wrangler.toml`.
+- Wrangler can confirm secret names only. If the official relayer endpoint is healthy but the deployed Worker still returns `network_error`, rotate the corresponding `UMBRA_RELAYER_URL_*` secret to the verified official base URL; do not print or commit the secret value.
+- Keep Worker errors diagnostic but secret-safe. Return/log upstream status, endpoint path, and failure reason, not configured base URLs or tokens.
+- For read-only Umbra holdings, require only the relayer binding. Indexer/runtime bindings are for full Umbra execution/status readiness, not for syncing the supported mint list.

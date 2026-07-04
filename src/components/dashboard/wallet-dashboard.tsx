@@ -11,9 +11,9 @@ import {
 } from "@/components/dashboard/portfolio-performance-card";
 import { PublicAssetsCard } from "@/components/dashboard/public-assets-card";
 import { ShieldedAssetsCard } from "@/components/dashboard/shielded-assets-card";
+import { useWalletDashboardDebug } from "@/components/dashboard/use-wallet-dashboard-debug";
 import { WalletDashboardHeader } from "@/components/dashboard/wallet-dashboard-header";
 import { BentoGrid } from "@/components/ui/bento-grid";
-import { useGatewaySignIn } from "@/hooks/use-gateway-session";
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
 import { getErrorMessage } from "@/lib/offpay/display";
 import { debugLog, debugWarn, redactIdentifier } from "@/lib/offpay/debug";
@@ -33,9 +33,19 @@ type SessionReadState = "idle" | "loading" | "ready" | "missing" | "error";
 
 export function WalletDashboard() {
   const {
-    activeWallet, activeWalletAddress, authenticated, connectedWalletAddresses,
-    embeddedWalletCount, externalWalletCount, preferredWalletCustody, privyUserId,
-    privyReady, signerReady, walletAddress, walletCount, walletCustody, walletsReady,
+    activeWalletAddress,
+    authenticated,
+    connectedWalletAddresses,
+    embeddedWalletCount,
+    externalWalletCount,
+    preferredWalletCustody,
+    privyReady,
+    privyUserId,
+    signerReady,
+    walletAddress,
+    walletCount,
+    walletCustody,
+    walletsReady,
   } = useSolanaWalletAccount();
   const [session, setSession] = useState<WebSession | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
@@ -53,20 +63,6 @@ export function WalletDashboard() {
       session.identity.address === walletAddress &&
       session.identity.custody === walletCustody,
   );
-
-  const { signIn, signing, error: signInError } = useGatewaySignIn({
-    gatewayOrigin,
-    cluster,
-    walletAddress,
-    walletCustody,
-    activeWallet,
-    onSession: (verification) => {
-      setSession(verification.session);
-      setSessionToken(verification.sessionToken);
-      setSessionReadState("ready");
-      setSessionSyncError(null);
-    },
-  });
 
   const balancesQuery = useQuery({
     queryKey: [
@@ -184,42 +180,16 @@ export function WalletDashboard() {
     });
   }, [cluster, gatewayOrigin, walletAddress, walletCustody]);
 
-  useEffect(() => {
-    debugLog("dashboard.wallet_state", {
-      activeWallet: signerReady,
-      activeWalletAddress: redactIdentifier(activeWalletAddress),
-      authenticated,
-      balancesFetchEnabled: Boolean(gatewayOrigin && walletAddress),
-      cluster,
-      custody: walletCustody,
-      embeddedWalletCount,
-      externalWalletCount,
-      gatewayConfigured: Boolean(gatewayOrigin),
-      preferredWalletCustody,
-      privyUserId: redactIdentifier(privyUserId),
-      ready: privyReady,
-      sessionReadState,
-      sessionReady,
-      signerReady,
-      connectedWalletAddresses: connectedWalletAddresses
-        .split(",")
-        .filter(Boolean)
-        .map(redactIdentifier),
-      walletAddress: redactIdentifier(walletAddress),
-      walletCount,
-      walletsReady,
-    });
-  }, [
+  useWalletDashboardDebug({
     activeWalletAddress,
     authenticated,
-    cluster,
     connectedWalletAddresses,
     embeddedWalletCount,
     externalWalletCount,
-    gatewayOrigin,
+    gatewayConfigured: Boolean(gatewayOrigin),
     preferredWalletCustody,
-    privyUserId,
     privyReady,
+    privyUserId,
     sessionReadState,
     sessionReady,
     signerReady,
@@ -227,7 +197,7 @@ export function WalletDashboard() {
     walletCustody,
     walletCount,
     walletsReady,
-  ]);
+  });
 
   useEffect(() => {
     if (!gatewayOrigin || !walletAddress || !walletCustody) {
@@ -359,13 +329,7 @@ export function WalletDashboard() {
         ) : (
           <ShieldedAssetsCard
             gatewayOrigin={gatewayOrigin}
-            onSignSession={signIn}
-            sessionId={sessionReady ? session?.id : null}
-            sessionToken={sessionReady ? sessionToken : null}
-            signSessionError={signInError}
-            signingSession={signing}
             walletAddress={walletAddress}
-            walletCustody={walletCustody}
           />
         )}
       </BentoGrid>

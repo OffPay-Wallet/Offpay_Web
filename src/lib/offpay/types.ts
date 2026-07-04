@@ -150,6 +150,11 @@ export type UmbraVaultHoldings = {
   fetchedAt: string;
   holdings: UmbraVaultHolding[];
   network: UmbraNetwork;
+  relayerSync: {
+    reason?: "http_status" | "network_error" | "invalid_json";
+    source: "relayer" | "metadata_fallback";
+    upstreamStatus?: number;
+  };
   relayerAddress: string | null;
   supportedMintCount: number;
 };

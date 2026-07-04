@@ -83,6 +83,10 @@ const publicTokenMetadataSchema = z.object({
   network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
   mints: z.string().min(1).max(4000),
 });
+const umbraPublicSchema = z.object({
+  address: z.string().min(32),
+  network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
+});
 
 function sessionSecret(env: GatewayEnv): string | undefined {
   const secret = env.OFFPAY_WEB_SESSION_SECRET;
@@ -574,31 +578,36 @@ app.get("/web/wallet/balance", requireSession, async (c) => {
   });
 });
 
-app.get("/web/umbra/status", requireSession, (c) => {
-  const session = c.get("session");
-  const status = readUmbraGatewayStatus(c.env, session.identity.cluster);
+app.get("/web/umbra/status", zValidator("query", umbraPublicSchema), (c) => {
+  const input = c.req.valid("query");
+  const status = readUmbraGatewayStatus(c.env, input.network);
 
   gatewayDebugLog(c, "umbra.status", {
     configured: status.configured,
     network: status.network,
     supported: status.supported,
+    walletAddress: redactIdentifier(input.address),
   });
 
   return ok(c, status);
 });
 
-app.get("/web/umbra/holdings", requireSession, async (c) => {
-  const session = c.get("session");
+app.get("/web/umbra/holdings", zValidator("query", umbraPublicSchema), async (c) => {
+  const input = c.req.valid("query");
 
   try {
     const holdings = await readUmbraVaultHoldings({
       env: c.env,
-      identity: session.identity,
+      identity: {
+        address: input.address,
+        cluster: input.network,
+      },
     });
 
     gatewayDebugLog(c, "umbra.holdings.success", {
       network: holdings.network,
       supportedMintCount: holdings.supportedMintCount,
+      walletAddress: redactIdentifier(input.address),
     });
 
     return ok(c, holdings);
@@ -606,6 +615,7 @@ app.get("/web/umbra/holdings", requireSession, async (c) => {
     if (error instanceof UmbraVaultGatewayError) {
       gatewayWarnLog(c, "umbra.holdings.error", {
         code: error.code,
+        details: error.details,
         status: error.status,
       });
 

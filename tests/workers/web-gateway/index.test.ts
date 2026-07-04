@@ -155,8 +155,7 @@ describe("gateway public balance route", () => {
 });
 
 describe("gateway Umbra holdings route", () => {
-  it("returns server-normalized encrypted holdings for a signed session", async () => {
-    const sessionToken = await createSessionToken(session, secret);
+  it("returns server-normalized encrypted holdings without a signed session", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
         active_stealth_pool_indices: ["0"],
@@ -167,18 +166,15 @@ describe("gateway Umbra holdings route", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const response = await app.fetch(
-      new Request("https://gateway.example.invalid/web/umbra/holdings", {
-        headers: {
-          authorization: `Bearer ${sessionToken}`,
-          origin: "http://localhost:3000",
+      new Request(
+        "https://gateway.example.invalid/web/umbra/holdings?address=11111111111111111111111111111111&network=solana:devnet",
+        {
+          headers: {
+            origin: "http://localhost:3000",
+          },
         },
-      }),
+      ),
       {
-        OFFPAY_WEB_SESSION_SECRET: secret,
-        UMBRA_CIRCUIT_VERSION: "V18",
-        UMBRA_INDEXER_URL_DEVNET: "https://indexer.devnet.example.invalid",
-        UMBRA_LOCAL_TEST_MODE: "false",
-        UMBRA_MIN_SDK_VERSION: "5.0.0-rc.6",
         UMBRA_RELAYER_URL_DEVNET: "https://relayer.devnet.example.invalid",
       },
     );
@@ -235,6 +231,7 @@ describe("gateway manual workflow config route", () => {
             method: "GET",
             path: "/web/umbra/holdings",
             implemented: true,
+            public: true,
           }),
         ]),
       },

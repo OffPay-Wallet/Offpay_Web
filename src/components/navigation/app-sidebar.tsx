@@ -118,11 +118,7 @@ export function AppSidebar() {
                       "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       "focus-visible:ring-offset-card hover:text-foreground motion-reduce:transition-none",
                       collapsed && "md:justify-center md:px-0",
-                      active && "offpay-sidebar-link-active rounded-none",
-                      active &&
-                        !collapsed &&
-                        "md:-mx-4 md:w-[calc(100%+2rem)] md:px-7",
-                      active && collapsed && "md:-mx-1 md:w-[calc(100%+0.5rem)]",
+                      active && "offpay-sidebar-link-active",
                       active ? "text-foreground" : "text-muted-foreground",
                     )}
                   >

@@ -1,22 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { WebWalletIdentity } from "../../../src/lib/offpay/types";
 import {
   readUmbraVaultHoldings,
   UmbraVaultGatewayError,
 } from "../../../workers/web-gateway/src/umbra-vault";
 
-const identity: WebWalletIdentity = {
+const identity = {
   address: "11111111111111111111111111111111",
-  cluster: "solana:devnet",
-  custody: "external-solana",
+  cluster: "solana:devnet" as const,
 };
 
 const env = {
-  UMBRA_CIRCUIT_VERSION: "V18",
-  UMBRA_INDEXER_URL_DEVNET: "https://indexer.devnet.example.invalid",
-  UMBRA_LOCAL_TEST_MODE: "false",
-  UMBRA_MIN_SDK_VERSION: "5.0.0-rc.6",
   UMBRA_RELAYER_URL_DEVNET: "https://relayer.devnet.example.invalid",
 };
 
@@ -51,6 +45,9 @@ describe("gateway Umbra vault holdings", () => {
       address: identity.address,
       cluster: "solana:devnet",
       network: "devnet",
+      relayerSync: {
+        source: "relayer",
+      },
       relayerAddress: "Relayer111111111111111111111111111111111",
       supportedMintCount: 2,
     });
@@ -72,7 +69,7 @@ describe("gateway Umbra vault holdings", () => {
     ]);
   });
 
-  it("reports missing Worker bindings before calling the relayer", async () => {
+  it("reports missing relayer binding before calling the relayer", async () => {
     const fetchMock = vi.fn();
 
     await expect(
@@ -82,9 +79,54 @@ describe("gateway Umbra vault holdings", () => {
         identity,
       }),
     ).rejects.toMatchObject<UmbraVaultGatewayError>({
-      code: "umbra_config_missing",
+      code: "umbra_relayer_missing",
       status: 503,
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to metadata rows when the relayer returns an upstream error", async () => {
+    const fetchMock = vi.fn(async () => new Response("not found", {
+      status: 404,
+      statusText: "Not Found",
+    }));
+
+    const holdings = await readUmbraVaultHoldings({
+      env,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      identity,
+    });
+
+    expect(holdings).toMatchObject({
+      activeStealthPoolIndices: [],
+      relayerAddress: null,
+      relayerSync: {
+        reason: "http_status",
+        source: "metadata_fallback",
+        upstreamStatus: 404,
+      },
+      supportedMintCount: 3,
+    });
+    expect(holdings.holdings.map((holding) => holding.symbol)).toEqual(["wSOL", "dUSDC", "dUSDT"]);
+  });
+
+  it("falls back to metadata rows when the relayer host cannot be reached", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+
+    const holdings = await readUmbraVaultHoldings({
+      env,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      identity,
+    });
+
+    expect(holdings).toMatchObject({
+      relayerSync: {
+        reason: "network_error",
+        source: "metadata_fallback",
+      },
+      supportedMintCount: 3,
+    });
   });
 });
