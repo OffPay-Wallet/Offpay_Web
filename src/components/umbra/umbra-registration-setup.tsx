@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
-import { AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,20 +16,26 @@ type SetupStatus = "required" | "ready";
 
 type UmbraRegistrationSetupProps = {
   activeWallet: ConnectedStandardSolanaWallet | undefined;
+  checkError: Error | null;
   cluster: SolanaCluster;
   disabled: boolean;
   gatewayOrigin: string | undefined;
+  isChecking: boolean;
   onReadyChange: (ready: boolean) => void;
+  onRetry: () => void;
   onSetupComplete: () => void;
   walletReady: boolean;
 };
 
 export function UmbraRegistrationSetup({
   activeWallet,
+  checkError,
   cluster,
   disabled,
   gatewayOrigin,
+  isChecking,
   onReadyChange,
+  onRetry,
   onSetupComplete,
   walletReady,
 }: UmbraRegistrationSetupProps) {
@@ -38,7 +44,33 @@ export function UmbraRegistrationSetup({
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<"danger" | "success">("success");
   const setupDisabled =
-    disabled || isSubmitting || !walletReady || !activeWallet || !gatewayOrigin;
+    disabled || isSubmitting || isChecking || !walletReady || !activeWallet || !gatewayOrigin;
+  const retryDisabled =
+    disabled || isChecking || !walletReady || !activeWallet || !gatewayOrigin;
+  const isCheckFailed = Boolean(checkError);
+  const title = isChecking
+    ? "Checking vault"
+    : isCheckFailed
+      ? "Check failed"
+      : status === "ready"
+        ? "Vault ready"
+        : "Set up vault";
+  const description = isChecking
+    ? "Validating Umbra registration."
+    : isCheckFailed
+      ? "Unable to validate registration."
+      : "Register this wallet for encrypted balances.";
+  const buttonLabel = isChecking
+    ? "Checking..."
+    : isCheckFailed
+      ? "Retry"
+      : isSubmitting
+        ? "Setting up..."
+        : status === "ready"
+          ? "Ready"
+          : "Set up";
+  const displayedMessage = checkError?.message ?? message;
+  const displayedTone = checkError ? "danger" : messageTone;
 
   async function handleSetup() {
     setIsSubmitting(true);
@@ -86,30 +118,30 @@ export function UmbraRegistrationSetup({
           )}
           aria-hidden="true"
         >
-          {status === "ready" ? (
+          {isChecking ? (
+            <RefreshCw className="h-4 w-4 motion-safe:animate-spin" />
+          ) : status === "ready" ? (
             <CheckCircle2 className="h-4 w-4" />
+          ) : isCheckFailed ? (
+            <AlertCircle className="h-4 w-4" />
           ) : (
             <ShieldCheck className="h-4 w-4" />
           )}
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold">
-            {status === "ready" ? "Vault ready" : "Set up vault"}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Register this wallet for encrypted balances.
-          </p>
-          {message ? (
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+          {displayedMessage ? (
             <p
               className={cn(
                 "mt-2 flex items-start gap-1.5 text-xs",
-                messageTone === "danger" ? "text-destructive" : "text-emerald-400",
+                displayedTone === "danger" ? "text-destructive" : "text-emerald-400",
               )}
             >
-              {messageTone === "danger" ? (
+              {displayedTone === "danger" ? (
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               ) : null}
-              <span>{message}</span>
+              <span>{displayedMessage}</span>
             </p>
           ) : null}
         </div>
@@ -117,13 +149,13 @@ export function UmbraRegistrationSetup({
 
       <Button
         type="button"
-        variant={status === "ready" ? "outline" : "primary"}
+        variant={status === "ready" || isCheckFailed ? "outline" : "primary"}
         className="h-9 shrink-0"
-        disabled={setupDisabled || status === "ready"}
-        aria-busy={isSubmitting ? "true" : undefined}
-        onClick={handleSetup}
+        disabled={isCheckFailed ? retryDisabled : setupDisabled || status === "ready"}
+        aria-busy={isSubmitting || isChecking ? "true" : undefined}
+        onClick={isCheckFailed ? onRetry : handleSetup}
       >
-        {isSubmitting ? "Setting up..." : status === "ready" ? "Ready" : "Set up"}
+        {buttonLabel}
       </Button>
     </section>
   );

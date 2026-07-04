@@ -159,6 +159,17 @@ export type UmbraVaultHoldings = {
   supportedMintCount: number;
 };
 
+export type UmbraVaultRegistrationStatus = {
+  address: string;
+  cluster: Exclude<SolanaCluster, "solana:testnet">;
+  fetchedAt: string;
+  network: UmbraNetwork;
+  registered: boolean;
+  state: "registered" | "not_registered" | "needs_setup";
+  userAccountExists: boolean;
+  x25519Registered: boolean;
+};
+
 export type ReadWalletTransactionsInput = {
   walletAddress: string;
   network: SolanaCluster;

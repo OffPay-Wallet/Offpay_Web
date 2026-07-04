@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import type { QueryUserAccountResult } from "@umbra-privacy/sdk/query";
 
+import { readUmbraVaultRegistrationStatus } from "../../../workers/web-gateway/src/umbra-registration";
 import {
   readUmbraVaultHoldings,
   UmbraVaultGatewayError,
@@ -13,6 +15,8 @@ const identity = {
 const env = {
   UMBRA_RELAYER_URL_DEVNET: "https://relayer.devnet.example.invalid",
 };
+
+type ExistingUmbraUserAccount = Extract<QueryUserAccountResult, { state: "exists" }>["data"];
 
 describe("gateway Umbra vault holdings", () => {
   it("syncs supported encrypted token rows from the relayer", async () => {
@@ -127,6 +131,82 @@ describe("gateway Umbra vault holdings", () => {
         source: "metadata_fallback",
       },
       supportedMintCount: 3,
+    });
+  });
+});
+
+describe("gateway Umbra vault registration status", () => {
+  it("marks a wallet ready when its Umbra x25519 key is registered", async () => {
+    const data = {
+      isUserAccountX25519KeyRegistered: true,
+    } as ExistingUmbraUserAccount;
+
+    const status = await readUmbraVaultRegistrationStatus({
+      env: {},
+      identity,
+      queryUserAccount: async () => ({
+        data,
+        state: "exists",
+      }),
+    });
+
+    expect(status).toMatchObject({
+      address: identity.address,
+      cluster: "solana:devnet",
+      network: "devnet",
+      registered: true,
+      state: "registered",
+      userAccountExists: true,
+      x25519Registered: true,
+    });
+  });
+
+  it("requires setup when the user account exists without an x25519 key", async () => {
+    const data = {
+      isUserAccountX25519KeyRegistered: false,
+    } as ExistingUmbraUserAccount;
+
+    const status = await readUmbraVaultRegistrationStatus({
+      env: {},
+      identity,
+      queryUserAccount: async () => ({
+        data,
+        state: "exists",
+      }),
+    });
+
+    expect(status).toMatchObject({
+      registered: false,
+      state: "needs_setup",
+      userAccountExists: true,
+      x25519Registered: false,
+    });
+  });
+
+  it("requires setup when the user account does not exist", async () => {
+    const status = await readUmbraVaultRegistrationStatus({
+      env: {},
+      identity,
+      queryUserAccount: async () => ({ state: "non_existent" }),
+    });
+
+    expect(status).toMatchObject({
+      registered: false,
+      state: "not_registered",
+      userAccountExists: false,
+      x25519Registered: false,
+    });
+  });
+
+  it("reports missing RPC config when no query override is provided", async () => {
+    await expect(
+      readUmbraVaultRegistrationStatus({
+        env: {},
+        identity,
+      }),
+    ).rejects.toMatchObject<UmbraVaultGatewayError>({
+      code: "umbra_rpc_missing",
+      status: 503,
     });
   });
 });

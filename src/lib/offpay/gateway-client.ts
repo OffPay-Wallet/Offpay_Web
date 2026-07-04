@@ -8,6 +8,7 @@ import type {
   SwapTokenListResponse,
   TokenMetadataResponse,
   UmbraVaultHoldings,
+  UmbraVaultRegistrationStatus,
   WalletPortfolio,
   WalletTransactionsResponse,
   WebApiEnvelope,
@@ -43,6 +44,50 @@ export type ReadUmbraGatewayInput = {
   walletAddress: string;
   network: SolanaCluster;
 };
+
+type JsonRpcEnvelope<T> = {
+  error?: {
+    code?: number;
+    message?: string;
+  };
+  id?: unknown;
+  jsonrpc?: "2.0";
+  result?: T;
+};
+
+function clusterToRpcProxyNetwork(network: SolanaCluster): "devnet" | "mainnet" {
+  if (network === "solana:mainnet") return "mainnet";
+  return "devnet";
+}
+
+async function requestGatewayRpc<T>({
+  body,
+  gatewayOrigin,
+  label,
+  network,
+}: {
+  body: Record<string, unknown>;
+  gatewayOrigin: string;
+  label: string;
+  network: SolanaCluster;
+}): Promise<T> {
+  const target = new URL(`/web/rpc/${clusterToRpcProxyNetwork(network)}`, gatewayOrigin);
+  const response = await fetch(target, {
+    body: JSON.stringify(body),
+    credentials: "include",
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+  const payload = await response.json() as JsonRpcEnvelope<T>;
+
+  if (!response.ok || payload.error || payload.result == null) {
+    throw new Error(payload.error?.message ?? `${label} RPC request failed.`);
+  }
+
+  return payload.result;
+}
 
 export async function createSessionNonce(
   gatewayOrigin: string,
@@ -160,6 +205,30 @@ export async function readGatewayUmbraVaultHoldings(
   });
 }
 
+export async function readGatewayUmbraVaultRegistrationStatus(
+  gatewayOrigin: string,
+  input: ReadUmbraGatewayInput,
+): Promise<WebApiEnvelope<UmbraVaultRegistrationStatus>> {
+  const searchParams = new URLSearchParams({
+    address: input.walletAddress,
+    network: input.network,
+  });
+
+  return requestGateway<UmbraVaultRegistrationStatus>({
+    gatewayOrigin,
+    label: "umbra.registration",
+    path: `/web/umbra/registration?${searchParams.toString()}`,
+    init: {
+      method: "GET",
+      credentials: "include",
+    },
+    context: {
+      network: input.network,
+      walletAddress: redactIdentifier(input.walletAddress),
+    },
+  });
+}
+
 export async function readGatewayPublicBalances(
   gatewayOrigin: string,
   input: ReadPublicBalancesInput,
@@ -182,6 +251,25 @@ export async function readGatewayPublicBalances(
       walletAddress: redactIdentifier(input.walletAddress),
     },
   });
+}
+
+export async function readGatewayMinimumBalanceForRentExemption(
+  gatewayOrigin: string,
+  input: { network: SolanaCluster; space: number },
+): Promise<bigint> {
+  const lamports = await requestGatewayRpc<number>({
+    gatewayOrigin,
+    label: "rpc.minimum_balance_for_rent_exemption",
+    network: input.network,
+    body: {
+      id: "offpay-min-rent",
+      jsonrpc: "2.0",
+      method: "getMinimumBalanceForRentExemption",
+      params: [input.space],
+    },
+  });
+
+  return BigInt(lamports);
 }
 
 export async function readGatewayTokenPricesBatch(

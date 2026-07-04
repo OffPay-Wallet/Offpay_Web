@@ -117,6 +117,29 @@ describe("Umbra vault preflight validation", () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it("blocks shield when only a same-symbol different-mint token is available", () => {
+    const mismatchedPortfolio = portfolio({ tokenAmount: "1987000000" });
+    mismatchedPortfolio.tokens[0] = {
+      ...mismatchedPortfolio.tokens[0],
+      mint: "OtherDusdcMint1111111111111111111111111111",
+    };
+
+    const result = validateUmbraVaultPreflight({
+      action: "shield",
+      amount: "6",
+      holding,
+      portfolio: mismatchedPortfolio,
+      portfolioError: null,
+      portfolioLoading: false,
+      walletReady: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "No spendable dUSDC balance found.",
+    });
+  });
+
   it("uses native SOL as spendable wSOL while reserving network fees", () => {
     const result = validateUmbraVaultPreflight({
       action: "shield",

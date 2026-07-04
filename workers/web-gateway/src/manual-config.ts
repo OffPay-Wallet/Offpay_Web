@@ -480,6 +480,14 @@ export const manualWorkflowRoutes = [
     configGroups: ["umbra-devnet-relayer", "umbra-mainnet-relayer"],
   },
   {
+    method: "GET",
+    path: "/web/umbra/registration",
+    capability: "umbra-registration-status",
+    implemented: true,
+    public: true,
+    configGroups: ["devnet-rpc-http", "mainnet-rpc-http"],
+  },
+  {
     method: "ANY",
     path: "/web/umbra/indexer/:network/:proxyPath",
     capability: "umbra-sdk-indexer-proxy",

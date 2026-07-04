@@ -32,4 +32,33 @@ describe("Umbra vault execution messages", () => {
       "Umbra simulation failed: Error Code: InvalidFeeSchedule",
     );
   });
+
+  it("maps missing token or Umbra accounts from simulation logs", () => {
+    const error = {
+      cause: {
+        simulationLogs: [
+          "Program log: Instruction: Deposit",
+          "Program log: Error: AccountNotInitialized",
+        ],
+      },
+    };
+
+    expect(umbraVaultExecutionMessage(error)).toBe(
+      "Required Umbra or token account is not initialized. Refresh the vault and try setup again.",
+    );
+  });
+
+  it("surfaces simulation errors when logs are unavailable", () => {
+    const error = {
+      cause: {
+        simulationErr: {
+          InstructionError: [2, { Custom: 1 }],
+        },
+      },
+    };
+
+    expect(umbraVaultExecutionMessage(error)).toBe(
+      'Umbra simulation failed: {"InstructionError":[2,{"Custom":1}]}',
+    );
+  });
 });

@@ -17,6 +17,7 @@ import {
 import type {
   SolanaCluster,
   UmbraVaultHolding,
+  UmbraVaultRegistrationStatus,
   WalletPortfolio,
 } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
@@ -40,9 +41,14 @@ type VaultActionFormProps = {
   isLoading: boolean;
   onActionComplete: () => void;
   onPortfolioRetry: () => void;
+  onRegistrationRetry: () => void;
   portfolio: WalletPortfolio | undefined;
   portfolioError: Error | null;
   portfolioLoading: boolean;
+  registrationError: Error | null;
+  registrationLoading: boolean;
+  registrationStatus: UmbraVaultRegistrationStatus | undefined;
+  feeReserveLamports: bigint | null;
   walletReady: boolean;
 };
 
@@ -60,9 +66,14 @@ export function VaultActionForm({
   isLoading,
   onActionComplete,
   onPortfolioRetry,
+  onRegistrationRetry,
   portfolio,
   portfolioError,
   portfolioLoading,
+  registrationError,
+  registrationLoading,
+  registrationStatus,
+  feeReserveLamports,
   walletReady,
 }: VaultActionFormProps) {
   const [action, setAction] = useState<VaultAction>("shield");
@@ -77,7 +88,8 @@ export function VaultActionForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [readyVaultKey, setReadyVaultKey] = useState<string | null>(null);
   const vaultSetupKey = `${cluster}:${gatewayOrigin ?? ""}:${activeWallet?.address ?? ""}`;
-  const registrationReady = readyVaultKey === vaultSetupKey;
+  const registrationReady =
+    registrationStatus?.registered === true || readyVaultKey === vaultSetupKey;
 
   const selectedHolding = useMemo(
     () => holdings.find((row) => row.mint === selectedMint) ?? holdings[0] ?? null,
@@ -101,6 +113,7 @@ export function VaultActionForm({
     : "Confirming...";
   const hint = umbraVaultBalanceHint({
     action,
+    feeReserveLamports,
     holding: selectedHolding,
     portfolio,
     portfolioError,
@@ -119,6 +132,7 @@ export function VaultActionForm({
     const result = validateUmbraVaultPreflight({
       action,
       amount,
+      feeReserveLamports,
       holding: selectedHolding,
       portfolio,
       portfolioError,
@@ -200,18 +214,23 @@ export function VaultActionForm({
         </p>
       </div>
 
-      <UmbraRegistrationSetup
-        key={vaultSetupKey}
-        activeWallet={activeWallet}
-        cluster={cluster}
-        disabled={isSubmitting}
-        gatewayOrigin={gatewayOrigin}
-        onReadyChange={(ready) => {
-          setReadyVaultKey(ready ? vaultSetupKey : null);
-        }}
-        onSetupComplete={onActionComplete}
-        walletReady={walletReady}
-      />
+      {registrationReady ? null : (
+        <UmbraRegistrationSetup
+          key={vaultSetupKey}
+          activeWallet={activeWallet}
+          checkError={registrationError}
+          cluster={cluster}
+          disabled={isSubmitting}
+          gatewayOrigin={gatewayOrigin}
+          isChecking={registrationLoading}
+          onReadyChange={(ready) => {
+            setReadyVaultKey(ready ? vaultSetupKey : null);
+          }}
+          onRetry={onRegistrationRetry}
+          onSetupComplete={onActionComplete}
+          walletReady={walletReady}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-1 rounded-full border border-border bg-background p-1">
         {vaultActions.map(({ id, label, Icon }) => {

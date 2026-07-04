@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, LockKeyhole } from "lucide-react";
 import Link from "next/link";
@@ -13,9 +13,11 @@ import {
   readGatewayPublicBalances,
   readGatewayTokenMetadata,
   readGatewayUmbraVaultHoldings,
+  readGatewayUmbraVaultRegistrationStatus,
 } from "@/lib/offpay/gateway-client";
 import { getGatewayOrigin, getPublicSolanaCluster } from "@/lib/offpay/public-config";
 import type { UmbraVaultHolding, WalletTokenMetadata } from "@/lib/offpay/types";
+import { prepareUmbraVaultSession } from "@/lib/offpay/umbra-vault-execution";
 import { cn } from "@/lib/utils";
 
 type UmbraVaultPanelProps = {
@@ -38,6 +40,7 @@ export function UmbraVaultPanel({
   const cluster = getPublicSolanaCluster();
   const gatewayOrigin = gatewayOriginProp ?? getGatewayOrigin();
   const walletAddress = walletAddressProp ?? wallet.walletAddress;
+  const warmupAttemptedRef = useRef<string | null>(null);
 
   const holdingsQuery = useQuery({
     enabled: Boolean(gatewayOrigin && walletAddress),
@@ -62,6 +65,28 @@ export function UmbraVaultPanel({
 
   const holdings = holdingsQuery.data?.holdings ?? emptyHoldings;
   const walletReady = Boolean(walletAddress);
+
+  const registrationQuery = useQuery({
+    enabled: Boolean(gatewayOrigin && walletAddress),
+    queryKey: ["umbra-vault-registration", gatewayOrigin, cluster, walletAddress],
+    queryFn: async () => {
+      if (!gatewayOrigin || !walletAddress) {
+        throw new Error("Wallet address is not available.");
+      }
+
+      const envelope = await readGatewayUmbraVaultRegistrationStatus(gatewayOrigin, {
+        network: cluster,
+        walletAddress,
+      });
+
+      if (!envelope.ok) {
+        throw new Error(envelope.error.message);
+      }
+
+      return envelope.data;
+    },
+    staleTime: 30_000,
+  });
 
   const holdingMints = useMemo(
     () => Array.from(new Set(holdings.map((holding) => holding.mint))),
@@ -90,6 +115,37 @@ export function UmbraVaultPanel({
   });
 
   const logoByMint = metadataQuery.data?.metadata ?? emptyLogoMap;
+
+  const sessionWarmupKey = `${cluster}:${gatewayOrigin ?? ""}:${wallet.activeWallet?.address ?? ""}`;
+  useEffect(() => {
+    if (
+      compact ||
+      !gatewayOrigin ||
+      !wallet.activeWallet ||
+      registrationQuery.data?.registered !== true
+    ) {
+      return;
+    }
+
+    if (warmupAttemptedRef.current === sessionWarmupKey) return;
+    warmupAttemptedRef.current = sessionWarmupKey;
+
+    void prepareUmbraVaultSession({
+      cluster,
+      gatewayOrigin,
+      wallet: wallet.activeWallet,
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.debug("[offpay-web] umbra.session_warmup.skipped", { message });
+    });
+  }, [
+    cluster,
+    compact,
+    gatewayOrigin,
+    registrationQuery.data?.registered,
+    sessionWarmupKey,
+    wallet.activeWallet,
+  ]);
 
   const publicBalancesQuery = useQuery({
     enabled: Boolean(gatewayOrigin && walletAddress) && !compact,
@@ -180,13 +236,18 @@ export function UmbraVaultPanel({
           holdings={holdings}
           isLoading={holdingsQuery.isLoading}
           onActionComplete={() => {
+            void registrationQuery.refetch();
             void holdingsQuery.refetch();
             void publicBalancesQuery.refetch();
           }}
           onPortfolioRetry={() => void publicBalancesQuery.refetch()}
+          onRegistrationRetry={() => void registrationQuery.refetch()}
           portfolio={publicBalancesQuery.data}
           portfolioError={publicBalancesQuery.error}
           portfolioLoading={publicBalancesQuery.isLoading || publicBalancesQuery.isFetching}
+          registrationError={registrationQuery.error}
+          registrationLoading={registrationQuery.isLoading || registrationQuery.isFetching}
+          registrationStatus={registrationQuery.data}
           walletReady={walletReady}
         />
       </div>

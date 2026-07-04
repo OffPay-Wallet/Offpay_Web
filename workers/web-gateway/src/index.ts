@@ -45,6 +45,7 @@ import {
 } from "./session";
 import type { GatewayBindings, GatewayEnv } from "./types";
 import { readUmbraGatewayStatus } from "./umbra-status";
+import { readUmbraVaultRegistrationStatus } from "./umbra-registration";
 import {
   readUmbraVaultHoldings,
   UmbraVaultGatewayError,
@@ -633,6 +634,48 @@ app.get("/web/umbra/holdings", zValidator("query", umbraPublicSchema), async (c)
     return fail(c, 502, {
       code: "umbra_holdings_unavailable",
       message: "Unable to sync Umbra vault holdings.",
+    });
+  }
+});
+
+app.get("/web/umbra/registration", zValidator("query", umbraPublicSchema), async (c) => {
+  const input = c.req.valid("query");
+
+  try {
+    const registration = await readUmbraVaultRegistrationStatus({
+      env: c.env,
+      identity: {
+        address: input.address,
+        cluster: input.network,
+      },
+    });
+
+    gatewayDebugLog(c, "umbra.registration.success", {
+      network: registration.network,
+      registered: registration.registered,
+      walletAddress: redactIdentifier(input.address),
+    });
+
+    return ok(c, registration);
+  } catch (error) {
+    if (error instanceof UmbraVaultGatewayError) {
+      gatewayWarnLog(c, "umbra.registration.error", {
+        code: error.code,
+        details: error.details,
+        status: error.status,
+      });
+
+      return fail(c, error.status, {
+        code: error.code,
+        message: error.message,
+        ...(error.details ? { details: error.details } : {}),
+      });
+    }
+
+    gatewayWarnLog(c, "umbra.registration.unknown_error");
+    return fail(c, 502, {
+      code: "umbra_registration_unavailable",
+      message: "Unable to verify Umbra vault registration.",
     });
   }
 });

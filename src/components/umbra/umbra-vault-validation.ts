@@ -15,7 +15,6 @@ export type VaultValidationResult =
       retryBalances?: true;
     };
 
-const umbraActionMinSolLamports = 20_000_000n;
 const nativeSolMint = "So11111111111111111111111111111111111111112";
 
 export function decimalToAtomic(value: string, decimals: number): bigint | null {
@@ -66,11 +65,7 @@ function findPublicToken(
   portfolio: WalletPortfolio | undefined,
   holding: UmbraVaultHolding,
 ): WalletTokenBalance | undefined {
-  const byMint = portfolio?.tokens.find((token) => token.mint === holding.mint);
-  if (byMint) return byMint;
-
-  const symbol = holding.symbol.toUpperCase();
-  return portfolio?.tokens.find((token) => token.symbol?.toUpperCase() === symbol);
+  return portfolio?.tokens.find((token) => token.mint === holding.mint);
 }
 
 function amountError(amount: string, holding: UmbraVaultHolding | null): string | null {
@@ -86,23 +81,34 @@ function amountError(amount: string, holding: UmbraVaultHolding | null): string 
   return null;
 }
 
-function solFundingError(portfolio: WalletPortfolio): string | null {
+function solFundingError(
+  portfolio: WalletPortfolio,
+  feeReserveLamports: bigint | null | undefined,
+): string | null {
+  const reserveLamports = feeReserveLamports && feeReserveLamports > 0n ? feeReserveLamports : 0n;
+  if (reserveLamports === 0n) return null;
+
   const lamports = readAtomicAmount(portfolio.sol.lamports);
 
   if (lamports == null) return "Unable to verify SOL fee balance.";
-  if (lamports >= umbraActionMinSolLamports) return null;
+  if (lamports >= reserveLamports) return null;
 
   return `Need at least ${formatAtomicAmount(
-    umbraActionMinSolLamports,
+    reserveLamports,
     9,
   )} SOL for Umbra setup and network fees.`;
 }
 
-function nativeSolSpendableAmount(portfolio: WalletPortfolio): bigint | null {
+function nativeSolSpendableAmount(
+  portfolio: WalletPortfolio,
+  feeReserveLamports: bigint | null | undefined,
+): bigint | null {
   const lamports = readAtomicAmount(portfolio.sol.lamports);
+  const reserveLamports = feeReserveLamports && feeReserveLamports > 0n ? feeReserveLamports : 0n;
+
   if (lamports == null) return null;
-  if (lamports <= umbraActionMinSolLamports) return 0n;
-  return lamports - umbraActionMinSolLamports;
+  if (lamports <= reserveLamports) return 0n;
+  return lamports - reserveLamports;
 }
 
 export function validateUmbraVaultPreflight({
@@ -112,10 +118,12 @@ export function validateUmbraVaultPreflight({
   portfolio,
   portfolioError,
   portfolioLoading,
+  feeReserveLamports,
   walletReady,
 }: {
   action: VaultAction;
   amount: string;
+  feeReserveLamports?: bigint | null;
   holding: UmbraVaultHolding | null;
   portfolio: WalletPortfolio | undefined;
   portfolioError: Error | null;
@@ -159,25 +167,27 @@ export function validateUmbraVaultPreflight({
   }
 
   if (action === "shield") {
-    return validateShieldPreflight({ amountAtomic, holding, portfolio });
+    return validateShieldPreflight({ amountAtomic, feeReserveLamports, holding, portfolio });
   }
 
-  return validateUnshieldPreflight({ amountAtomic, holding, portfolio });
+  return validateUnshieldPreflight({ amountAtomic, feeReserveLamports, holding, portfolio });
 }
 
 function validateShieldPreflight({
   amountAtomic,
+  feeReserveLamports,
   holding,
   portfolio,
 }: {
   amountAtomic: bigint;
+  feeReserveLamports: bigint | null | undefined;
   holding: UmbraVaultHolding;
   portfolio: WalletPortfolio;
 }): VaultValidationResult {
   const publicToken = findPublicToken(portfolio, holding);
   const publicAmount =
     holding.mint === nativeSolMint && !publicToken && portfolio
-      ? nativeSolSpendableAmount(portfolio)
+      ? nativeSolSpendableAmount(portfolio, feeReserveLamports)
       : readAtomicAmount(publicToken?.amount);
 
   if (publicAmount == null || (holding.mint !== nativeSolMint && !publicToken)) {
@@ -195,16 +205,18 @@ function validateShieldPreflight({
     };
   }
 
-  const feeMessage = solFundingError(portfolio);
+  const feeMessage = solFundingError(portfolio, feeReserveLamports);
   return feeMessage ? { ok: false, message: feeMessage } : { ok: true };
 }
 
 function validateUnshieldPreflight({
   amountAtomic,
+  feeReserveLamports,
   holding,
   portfolio,
 }: {
   amountAtomic: bigint;
+  feeReserveLamports: bigint | null | undefined;
   holding: UmbraVaultHolding;
   portfolio: WalletPortfolio;
 }): VaultValidationResult {
@@ -212,7 +224,7 @@ function validateUnshieldPreflight({
     return { ok: false, message: "Token decimals are unavailable. Refresh vault." };
   }
   if (holding.uiAmountString == null) {
-    const feeMessage = solFundingError(portfolio);
+    const feeMessage = solFundingError(portfolio, feeReserveLamports);
     return feeMessage ? { ok: false, message: feeMessage } : { ok: true };
   }
 
@@ -231,18 +243,20 @@ function validateUnshieldPreflight({
     };
   }
 
-  const feeMessage = solFundingError(portfolio);
+  const feeMessage = solFundingError(portfolio, feeReserveLamports);
   return feeMessage ? { ok: false, message: feeMessage } : { ok: true };
 }
 
 export function umbraVaultBalanceHint({
   action,
   holding,
+  feeReserveLamports,
   portfolio,
   portfolioError,
   portfolioLoading,
 }: {
   action: VaultAction;
+  feeReserveLamports?: bigint | null;
   holding: UmbraVaultHolding | null;
   portfolio: WalletPortfolio | undefined;
   portfolioError: Error | null;
@@ -262,7 +276,7 @@ export function umbraVaultBalanceHint({
   const publicToken = findPublicToken(portfolio, holding);
   const publicAmount =
     holding.mint === nativeSolMint && !publicToken && portfolio
-      ? nativeSolSpendableAmount(portfolio)
+      ? nativeSolSpendableAmount(portfolio, feeReserveLamports)
       : readAtomicAmount(publicToken?.amount);
 
   if (!publicToken && holding.mint !== nativeSolMint) return `Available: 0 ${holding.symbol}`;
