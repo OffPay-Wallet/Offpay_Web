@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, LockKeyhole } from "lucide-react";
 import Link from "next/link";
@@ -11,13 +11,13 @@ import { VaultContent } from "@/components/umbra/umbra-vault-content";
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
 import {
   readGatewayPublicBalances,
+  readGatewayMinimumBalanceForRentExemption,
   readGatewayTokenMetadata,
   readGatewayUmbraVaultHoldings,
   readGatewayUmbraVaultRegistrationStatus,
 } from "@/lib/offpay/gateway-client";
 import { getGatewayOrigin, getPublicSolanaCluster } from "@/lib/offpay/public-config";
 import type { UmbraVaultHolding, WalletTokenMetadata } from "@/lib/offpay/types";
-import { prepareUmbraVaultSession } from "@/lib/offpay/umbra-vault-execution";
 import { cn } from "@/lib/utils";
 
 type UmbraVaultPanelProps = {
@@ -40,7 +40,6 @@ export function UmbraVaultPanel({
   const cluster = getPublicSolanaCluster();
   const gatewayOrigin = gatewayOriginProp ?? getGatewayOrigin();
   const walletAddress = walletAddressProp ?? wallet.walletAddress;
-  const warmupAttemptedRef = useRef<string | null>(null);
 
   const holdingsQuery = useQuery({
     enabled: Boolean(gatewayOrigin && walletAddress),
@@ -116,36 +115,21 @@ export function UmbraVaultPanel({
 
   const logoByMint = metadataQuery.data?.metadata ?? emptyLogoMap;
 
-  const sessionWarmupKey = `${cluster}:${gatewayOrigin ?? ""}:${wallet.activeWallet?.address ?? ""}`;
-  useEffect(() => {
-    if (
-      compact ||
-      !gatewayOrigin ||
-      !wallet.activeWallet ||
-      registrationQuery.data?.registered !== true
-    ) {
-      return;
-    }
+  const feeReserveQuery = useQuery({
+    enabled: Boolean(gatewayOrigin) && !compact,
+    queryKey: ["umbra-vault-fee-reserve", gatewayOrigin, cluster],
+    queryFn: async () => {
+      if (!gatewayOrigin) {
+        throw new Error("Gateway origin is not available.");
+      }
 
-    if (warmupAttemptedRef.current === sessionWarmupKey) return;
-    warmupAttemptedRef.current = sessionWarmupKey;
-
-    void prepareUmbraVaultSession({
-      cluster,
-      gatewayOrigin,
-      wallet: wallet.activeWallet,
-    }).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      console.debug("[offpay-web] umbra.session_warmup.skipped", { message });
-    });
-  }, [
-    cluster,
-    compact,
-    gatewayOrigin,
-    registrationQuery.data?.registered,
-    sessionWarmupKey,
-    wallet.activeWallet,
-  ]);
+      return readGatewayMinimumBalanceForRentExemption(gatewayOrigin, {
+        network: cluster,
+        space: 165,
+      });
+    },
+    staleTime: 60_000,
+  });
 
   const publicBalancesQuery = useQuery({
     enabled: Boolean(gatewayOrigin && walletAddress) && !compact,
@@ -248,6 +232,7 @@ export function UmbraVaultPanel({
           registrationError={registrationQuery.error}
           registrationLoading={registrationQuery.isLoading || registrationQuery.isFetching}
           registrationStatus={registrationQuery.data}
+          feeReserveLamports={feeReserveQuery.data ?? null}
           walletReady={walletReady}
         />
       </div>

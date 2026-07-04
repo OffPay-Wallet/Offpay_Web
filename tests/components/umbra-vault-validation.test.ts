@@ -23,6 +23,7 @@ const nativeSolHolding: UmbraVaultHolding = {
   name: "Wrapped SOL",
   symbol: "wSOL",
 };
+const rentReserveLamports = 2_039_280n;
 
 function portfolio({
   lamports = "50000000",
@@ -77,7 +78,8 @@ describe("Umbra vault preflight validation", () => {
       action: "shield",
       amount: "1",
       holding,
-      portfolio: portfolio({ lamports: "10000000", tokenAmount: "1000000" }),
+      feeReserveLamports: rentReserveLamports,
+      portfolio: portfolio({ lamports: "1000000", tokenAmount: "1000000" }),
       portfolioError: null,
       portfolioLoading: false,
       walletReady: true,
@@ -85,7 +87,7 @@ describe("Umbra vault preflight validation", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Need at least 0.02 SOL for Umbra setup and network fees.",
+      message: "Need at least 0.00203928 SOL for Umbra setup and network fees.",
     });
   });
 
@@ -145,6 +147,7 @@ describe("Umbra vault preflight validation", () => {
       action: "shield",
       amount: "0.03",
       holding: nativeSolHolding,
+      feeReserveLamports: rentReserveLamports,
       portfolio: portfolio({ lamports: "50000000" }),
       portfolioError: null,
       portfolioLoading: false,
@@ -157,7 +160,8 @@ describe("Umbra vault preflight validation", () => {
   it("blocks wSOL shield amounts that consume SOL fee coverage", () => {
     const result = validateUmbraVaultPreflight({
       action: "shield",
-      amount: "0.030000001",
+      amount: "0.047960721",
+      feeReserveLamports: rentReserveLamports,
       holding: nativeSolHolding,
       portfolio: portfolio({ lamports: "50000000" }),
       portfolioError: null,
@@ -168,7 +172,7 @@ describe("Umbra vault preflight validation", () => {
     expect(result).toEqual({
       ok: false,
       field: "amount",
-      message: "Insufficient wSOL. Available: 0.03 wSOL.",
+      message: "Insufficient wSOL. Available: 0.04796072 wSOL.",
     });
   });
 });

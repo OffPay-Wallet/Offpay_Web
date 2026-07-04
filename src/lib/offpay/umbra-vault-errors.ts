@@ -96,6 +96,14 @@ function simulationMessageFromText(text: string): string | null {
     return "Umbra transaction exceeded the compute budget. Retry with a smaller amount.";
   }
 
+  if (/signaturefailure|signature verification failure/i.test(text)) {
+    return "Wallet returned an invalid Umbra transaction signature. Reconnect the wallet and try again.";
+  }
+
+  if (/blockhashnotfound|blockhash not found/i.test(text)) {
+    return "Wallet confirmation took too long or the signed transaction expired. Rebuild and sign again.";
+  }
+
   return null;
 }
 
@@ -142,10 +150,7 @@ function simulationDiagnostics(error: unknown): { logs: string[]; message: strin
   return null;
 }
 
-function toMessage(error: unknown): string {
-  const simulation = simulationDiagnostics(error);
-  if (simulation) return simulation.message;
-
+function directKnownMessage(error: unknown): string | null {
   if (error instanceof UmbraVaultExecutionError) return error.message;
   if (isMasterSeedSigningRejectedError(error)) return "Umbra authorization was cancelled.";
   if (isKeyConsistencyError(error)) {
@@ -154,10 +159,24 @@ function toMessage(error: unknown): string {
   if (isRegistrationError(error)) {
     return "Umbra vault setup failed. Check wallet approval and retry.";
   }
-  if (isEncryptedDepositError(error)) return "Umbra shield transaction failed. Try again.";
-  if (isEncryptedWithdrawalError(error)) return "Umbra unshield transaction failed. Try again.";
 
   const message = error instanceof Error ? error.message : String(error);
+  if (/wallet did not attach.*umbra transaction signature/i.test(message)) {
+    return "Wallet approved but did not return a valid Umbra transaction signature. Reconnect the wallet and try again.";
+  }
+  if (/wallet.*modified.*umbra transaction message/i.test(message)) {
+    return "Wallet changed the Umbra transaction before signing. Reconnect the wallet and try again.";
+  }
+  if (
+    /rpc__transport_http_error|rpc_method_not_allowed|rpc_invalid_request|statuscode["']?:400|bad request/i.test(
+      message,
+    )
+  ) {
+    return "Gateway RPC rejected the Umbra transaction request. Retry after the gateway update is deployed.";
+  }
+  if (/fee payer signature missing|signatures?_missing|signature.*missing/i.test(message)) {
+    return "Wallet did not return every signature needed for this Umbra transaction.";
+  }
   if (/register|unregistered|confidential user/i.test(message)) {
     return "Set up the Umbra vault first, then retry.";
   }
@@ -166,6 +185,36 @@ function toMessage(error: unknown): string {
   if (/blockhash|timeout|network|fetch|rpc|failed to fetch/i.test(message)) {
     return "Network request failed while preparing the Umbra transaction. Retry in a moment.";
   }
+
+  return null;
+}
+
+function nestedKnownMessage(error: unknown): string | null {
+  const [, ...causes] = collectErrorChain(error);
+
+  for (const cause of causes) {
+    const simulation = simulationDiagnostics(cause);
+    if (simulation) return simulation.message;
+
+    const direct = directKnownMessage(cause);
+    if (direct) return direct;
+  }
+
+  return null;
+}
+
+function toMessage(error: unknown): string {
+  const simulation = simulationDiagnostics(error);
+  if (simulation) return simulation.message;
+
+  const direct = directKnownMessage(error);
+  if (direct) return direct;
+
+  const nested = nestedKnownMessage(error);
+  if (nested) return nested;
+
+  if (isEncryptedDepositError(error)) return "Umbra shield transaction failed. Try again.";
+  if (isEncryptedWithdrawalError(error)) return "Umbra unshield transaction failed. Try again.";
 
   return "Unable to complete the Umbra transaction.";
 }

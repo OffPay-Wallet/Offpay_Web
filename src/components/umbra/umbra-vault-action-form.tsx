@@ -2,18 +2,14 @@
 
 import { type FormEvent, useMemo, useState } from "react";
 import type { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
-import {
-  AlertCircle,
-  ArrowDownLeft,
-  ArrowUpRight,
-  RefreshCw,
-} from "lucide-react";
+import { AlertCircle, ArrowDownLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   executeUmbraVaultAction,
   umbraVaultExecutionMessage,
 } from "@/lib/offpay/umbra-vault-execution";
+import { debugError } from "@/lib/offpay/debug";
 import type {
   SolanaCluster,
   UmbraVaultHolding,
@@ -190,10 +186,14 @@ export function VaultActionForm({
       });
       onActionComplete();
     } catch (error) {
-      setFeedback({
-        message: umbraVaultExecutionMessage(error),
-        tone: "danger",
+      const message = umbraVaultExecutionMessage(error);
+      debugError("umbra.vault_action.failed", {
+        action,
+        code: error instanceof Error ? error.name : typeof error,
+        reason: message,
+        symbol: selectedHolding.symbol,
       });
+      setFeedback({ message, tone: "danger" });
     } finally {
       setIsSubmitting(false);
     }

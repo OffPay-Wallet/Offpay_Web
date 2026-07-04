@@ -26,16 +26,6 @@ type PollingForwardOptions = {
   readonly timeoutMs?: number;
 };
 
-type ForwardSequentiallyWithOptions = (
-  transactions: readonly SignedTransaction[],
-  options?: PollingForwardOptions,
-) => Promise<readonly TransactionSignature[]>;
-
-type ForwardInParallelWithOptions = (
-  transactions: readonly SignedTransaction[],
-  options?: PollingForwardOptions,
-) => Promise<readonly TransactionSignature[]>;
-
 type SimulationValue = {
   readonly err?: unknown;
   readonly logs?: readonly string[] | null;
@@ -43,11 +33,37 @@ type SimulationValue = {
 
 const confirmedCommitments = ["confirmed", "finalized"];
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? value as Record<string, unknown> : null;
+}
+
 function readSimulationValue(response: unknown): SimulationValue | null {
-  const record = response && typeof response === "object" ? response as Record<string, unknown> : null;
+  const record = asRecord(response);
   const value = record?.value;
 
   return value && typeof value === "object" ? value as SimulationValue : null;
+}
+
+function findSimulationValue(value: unknown, seen = new Set<unknown>()): SimulationValue | null {
+  if (!value || seen.has(value)) return null;
+  seen.add(value);
+
+  const record = asRecord(value);
+  if (!record) return null;
+
+  if ("err" in record || "logs" in record) {
+    return {
+      err: record.err,
+      logs: Array.isArray(record.logs) ? record.logs : null,
+    };
+  }
+
+  for (const key of ["value", "data", "cause", "error", "context"]) {
+    const nested = findSimulationValue(record[key], seen);
+    if (nested) return nested;
+  }
+
+  return null;
 }
 
 function readSimulationLogs(value: SimulationValue | null): string[] {
@@ -85,7 +101,7 @@ function buildSimulationError(value: SimulationValue | null): UmbraVaultExecutio
   );
 }
 
-async function assertSimulationPasses(
+async function assertProgramSimulationPasses(
   rpc: ReturnType<typeof createSolanaRpc>,
   transaction: SignedTransaction,
   commitment: Commitment,
@@ -95,8 +111,8 @@ async function assertSimulationPasses(
     .simulateTransaction(wireTransaction, {
       commitment,
       encoding: "base64",
-      replaceRecentBlockhash: false,
-      sigVerify: true,
+      replaceRecentBlockhash: true,
+      sigVerify: false,
     })
     .send();
   const value = readSimulationValue(response);
@@ -121,19 +137,41 @@ function stringifyRpcValue(value: unknown): string {
   }
 }
 
-async function sendWithoutDuplicatePreflight(
+async function sendWithRpcPreflight(
   rpc: ReturnType<typeof createSolanaRpc>,
   transaction: SignedTransaction,
+  commitment: Commitment,
 ): Promise<TransactionSignature> {
   const wireTransaction = getBase64EncodedWireTransaction(transaction);
-  const signature = await rpc
-    .sendTransaction(wireTransaction, {
-      encoding: "base64",
-      skipPreflight: true,
-    })
-    .send();
+  try {
+    const signature = await rpc
+      .sendTransaction(wireTransaction, {
+        encoding: "base64",
+        maxRetries: 0n,
+        preflightCommitment: commitment,
+      })
+      .send();
 
-  return signature as TransactionSignature;
+    return signature as unknown as TransactionSignature;
+  } catch (error) {
+    const value = findSimulationValue(error) ?? signatureFailureSimulationValue(error);
+    if (value) {
+      logSimulationFailure(value);
+      throw buildSimulationError(value);
+    }
+
+    throw error;
+  }
+}
+
+function signatureFailureSimulationValue(error: unknown): SimulationValue | null {
+  const text = stringifyRpcValue(error);
+  if (!/signaturefailure|signature verification failure/i.test(text)) return null;
+
+  return {
+    err: "SignatureFailure",
+    logs: null,
+  };
 }
 
 function commitmentReached(
@@ -191,8 +229,8 @@ export function createUmbraVaultTransactionForwarder(rpcUrl: string): Transactio
 
   return {
     fireAndForget: async (transaction) => {
-      await assertSimulationPasses(rpc, transaction, "confirmed");
-      return sendWithoutDuplicatePreflight(rpc, transaction);
+      await assertProgramSimulationPasses(rpc, transaction, "confirmed");
+      return sendWithRpcPreflight(rpc, transaction, "confirmed");
     },
     forwardInParallel: async (transactions, options?: PollingForwardOptions) => {
       const commitment = options?.commitment ?? "confirmed";
@@ -200,11 +238,11 @@ export function createUmbraVaultTransactionForwarder(rpcUrl: string): Transactio
       const pollingIntervalMs = options?.pollingIntervalMs ?? 1_000;
 
       await Promise.all(
-        transactions.map((transaction) => assertSimulationPasses(rpc, transaction, commitment)),
+        transactions.map((transaction) => assertProgramSimulationPasses(rpc, transaction, commitment)),
       );
 
       const signatures = await Promise.all(
-        transactions.map((transaction) => sendWithoutDuplicatePreflight(rpc, transaction)),
+        transactions.map((transaction) => sendWithRpcPreflight(rpc, transaction, commitment)),
       );
       await Promise.all(
         signatures.map((signature) =>
@@ -222,8 +260,8 @@ export function createUmbraVaultTransactionForwarder(rpcUrl: string): Transactio
       const totalCount = transactions.length;
 
       for (const [index, transaction] of transactions.entries()) {
-        await assertSimulationPasses(rpc, transaction, commitment);
-        const signature = await sendWithoutDuplicatePreflight(rpc, transaction);
+        await assertProgramSimulationPasses(rpc, transaction, commitment);
+        const signature = await sendWithRpcPreflight(rpc, transaction, commitment);
         await waitForConfirmation({ commitment, pollingIntervalMs, rpc, signature, timeoutMs });
         signatures.push(signature);
         await options?.onTransactionConfirmed?.({ index, signature, totalCount });

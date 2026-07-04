@@ -61,4 +61,39 @@ describe("Umbra vault execution messages", () => {
       'Umbra simulation failed: {"InstructionError":[2,{"Custom":1}]}',
     );
   });
+
+  it("maps expired signed transactions from exact simulation", () => {
+    const error = {
+      cause: {
+        simulationErr: "BlockhashNotFound",
+      },
+    };
+
+    expect(umbraVaultExecutionMessage(error)).toBe(
+      "Wallet confirmation took too long or the signed transaction expired. Rebuild and sign again.",
+    );
+  });
+
+  it("maps signature verification failures to wallet reconnect guidance", () => {
+    const error = {
+      cause: {
+        simulationErr: "SignatureFailure",
+        simulationLogs: [],
+      },
+    };
+
+    expect(umbraVaultExecutionMessage(error)).toBe(
+      "Wallet returned an invalid Umbra transaction signature. Reconnect the wallet and try again.",
+    );
+  });
+
+  it("surfaces nested wallet signature failures before generic SDK wrappers", () => {
+    const error = new Error("Transaction execution failed: Wallet did not attach the Umbra transaction signature.", {
+      cause: new Error("Wallet did not attach the Umbra transaction signature."),
+    });
+
+    expect(umbraVaultExecutionMessage(error)).toBe(
+      "Wallet approved but did not return a valid Umbra transaction signature. Reconnect the wallet and try again.",
+    );
+  });
 });

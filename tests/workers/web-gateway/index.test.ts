@@ -235,14 +235,84 @@ describe("gateway SDK proxy routes", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://rpc.example.invalid");
   });
 
+  it("passes validated Solana JSON-RPC batch requests through configured worker RPC", async () => {
+    const fetchMock = vi.fn(async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { id?: string; method?: string };
+
+      expect(Array.isArray(body)).toBe(false);
+
+      return Response.json({
+        id: body.id,
+        jsonrpc: "2.0",
+        result:
+          body.method === "sendTransaction"
+            ? "signature"
+            : { context: { slot: 1 }, value: body.method === "isBlockhashValid" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/rpc/devnet", {
+        body: JSON.stringify([
+          {
+            id: "simulate",
+            jsonrpc: "2.0",
+            method: "simulateTransaction",
+            params: ["abc", { encoding: "base64" }],
+          },
+          {
+            id: "send",
+            jsonrpc: "2.0",
+            method: "sendTransaction",
+            params: ["abc", { encoding: "base64" }],
+          },
+          {
+            id: "fees",
+            jsonrpc: "2.0",
+            method: "getRecentPrioritizationFees",
+            params: [],
+          },
+          {
+            id: "blockhash",
+            jsonrpc: "2.0",
+            method: "isBlockhashValid",
+            params: ["blockhash", { commitment: "confirmed" }],
+          },
+        ]),
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        method: "POST",
+      }),
+      {
+        HELIUS_DEVNET_RPC_URL: "https://rpc.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual([
+      expect.objectContaining({ id: "simulate" }),
+      expect.objectContaining({ id: "send" }),
+      expect.objectContaining({ id: "fees" }),
+      expect.objectContaining({ id: "blockhash" }),
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    for (const [target, init] of fetchMock.mock.calls) {
+      expect(target).toBe("https://rpc.example.invalid");
+      expect(Array.isArray(JSON.parse(String(init?.body)))).toBe(false);
+    }
+  });
+
   it("blocks non-allowlisted Solana JSON-RPC methods", async () => {
     const response = await app.fetch(
       new Request("https://gateway.example.invalid/web/rpc/devnet", {
         body: JSON.stringify({
           id: "bad-rpc",
           jsonrpc: "2.0",
-          method: "getBlock",
-          params: [1],
+          method: "requestAirdrop",
+          params: ["11111111111111111111111111111111", 1],
         }),
         headers: {
           "content-type": "application/json",

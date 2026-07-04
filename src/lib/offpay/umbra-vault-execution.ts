@@ -1,7 +1,6 @@
 import type { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
 import { address, type Address } from "@solana/kit";
 import {
-  createSignerFromWalletAccount,
   getPollingComputationMonitor,
   getRpcAccountInfoProvider,
   getRpcBlockhashProvider,
@@ -18,11 +17,12 @@ import { getETAIntoATAWithdrawerFunction } from "@umbra-privacy/sdk/withdrawal";
 import type { SolanaCluster, UmbraNetwork, UmbraVaultHolding } from "./types";
 import { UmbraVaultExecutionError } from "./umbra-vault-errors";
 import { createUmbraVaultTransactionForwarder } from "./umbra-vault-forwarder";
+import { createUmbraWalletSigner } from "./umbra-wallet-signer";
 
 export { UmbraVaultExecutionError, umbraVaultExecutionMessage } from "./umbra-vault-errors";
 
 type VaultAction = "shield" | "unshield";
-type SignerArgs = Parameters<typeof createSignerFromWalletAccount>[0];
+type SignerArgs = Parameters<typeof createUmbraWalletSigner>[0];
 
 export type UmbraVaultExecutionInput = {
   action: VaultAction;
@@ -49,11 +49,17 @@ export type UmbraVaultRegistrationResult = {
 };
 
 const masterSeedCache = new Map<string, MasterSeed>();
-const masterSeedWarmupCache = new Map<string, Promise<void>>();
 const umbraClientCache = new Map<
   string,
   { client: Promise<IUmbraClient>; wallet: ConnectedStandardSolanaWallet }
 >();
+const arciumVaultActionDeps = {
+  arcium: {
+    awaitComputationFinalization: {
+      reclaimComputationRent: false,
+    },
+  },
+} as const;
 
 function clusterToUmbraNetwork(cluster: SolanaCluster): UmbraNetwork {
   if (cluster === "solana:devnet") return "devnet";
@@ -134,7 +140,7 @@ async function buildUmbraClient({
   const network = clusterToUmbraNetwork(cluster);
   const rpcUrl = gatewayUrl(gatewayOrigin, `/web/rpc/${network}`);
   const indexerApiEndpoint = gatewayUrl(gatewayOrigin, `/web/umbra/indexer/${network}`);
-  const signer = createSignerFromWalletAccount(findWalletAccount(wallet));
+  const signer = createUmbraWalletSigner(findWalletAccount(wallet));
   const deps = createClientDeps(rpcUrl);
   const masterSeedCacheKey = `${network}:${wallet.address}`;
 
@@ -238,34 +244,6 @@ export async function executeUmbraVaultRegistration({
   return { signatureLabel: signatureLabel(result) };
 }
 
-export async function prepareUmbraVaultSession({
-  cluster,
-  gatewayOrigin,
-  wallet,
-}: UmbraVaultRegistrationInput): Promise<void> {
-  if (!wallet) {
-    throw new UmbraVaultExecutionError("wallet_missing", "Connect wallet first.");
-  }
-
-  const network = clusterToUmbraNetwork(cluster);
-  const masterSeedCacheKey = `${network}:${wallet.address}`;
-  if (masterSeedCache.has(masterSeedCacheKey)) return;
-
-  const key = cacheKey({ gatewayOrigin, network, walletAddress: wallet.address });
-  const pending = masterSeedWarmupCache.get(key);
-  if (pending) return pending;
-
-  const warmup = createUmbraClient({ cluster, gatewayOrigin, wallet })
-    .then((client) => client.masterSeed.getMasterSeed())
-    .then(() => undefined)
-    .finally(() => {
-      masterSeedWarmupCache.delete(key);
-    });
-
-  masterSeedWarmupCache.set(key, warmup);
-  return warmup;
-}
-
 export async function executeUmbraVaultAction({
   action,
   amountAtomic,
@@ -278,14 +256,13 @@ export async function executeUmbraVaultAction({
     throw new UmbraVaultExecutionError("wallet_missing", "Connect wallet first.");
   }
 
-  await prepareUmbraVaultSession({ cluster, gatewayOrigin, wallet });
   const client = await createUmbraClient({ cluster, gatewayOrigin, wallet });
   const userAddress = address(wallet.address);
   const mintAddress = address(holding.mint);
   const amount = amountAtomic as U64;
 
   if (action === "shield") {
-    const deposit = getATAIntoETADirectDepositorFunction({ client });
+    const deposit = getATAIntoETADirectDepositorFunction({ client }, arciumVaultActionDeps);
     const result = await deposit(userAddress, mintAddress, amount, {
       accountInfoCommitment: "confirmed",
       epochInfoCommitment: "confirmed",
@@ -302,7 +279,7 @@ export async function executeUmbraVaultAction({
     );
   }
 
-  const withdraw = getETAIntoATAWithdrawerFunction({ client });
+  const withdraw = getETAIntoATAWithdrawerFunction({ client }, arciumVaultActionDeps);
   const result = await withdraw(userAddress, mintAddress, amount, {
     accountInfoCommitment: "confirmed",
   });
