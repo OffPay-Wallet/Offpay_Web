@@ -19,6 +19,8 @@ const knownMints: Record<SolanaCluster, Record<string, TokenMeta>> = {
   },
   "solana:devnet": {
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": { symbol: "USDC", name: "USD Coin (Devnet)" },
+    "4oG4sjmopf5MzvTHLE8rpVJ2uyczxfsw2K84SUTpNDx7": { symbol: "dUSDC", name: "Devnet USDC" },
+    DXQwBNGgyQ2BzGWxEriJPVmXYFQBsQbXvfvfSNTaJkL6: { symbol: "dUSDT", name: "Devnet USDT" },
   },
   "solana:testnet": {},
 };

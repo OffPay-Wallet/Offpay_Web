@@ -5,7 +5,8 @@ import type {
   WalletTransactionSignature,
   WalletTransactionsResponse,
 } from "../../../src/lib/offpay/types";
-import { RpcBalanceError, rpcProviderConfig, rpcRequest } from "./rpc-balance";
+import { RpcBalanceError, rpcProviderConfig, rpcRequest } from "./rpc-core";
+import { enrichSignaturesWithAssets } from "./transaction-assets";
 import type { GatewayEnv } from "./types";
 
 const signatureInfoSchema = z.object({
@@ -82,12 +83,19 @@ export async function fetchWalletSignaturesFromRpc({
         limit,
         ...(before ? { before } : {}),
       });
+      const enrichedSignatures = await enrichSignaturesWithAssets({
+        address,
+        cluster,
+        env,
+        signatures,
+        url,
+      });
 
       return {
         address,
         cluster,
         fetchedAt: new Date().toISOString(),
-        signatures,
+        signatures: enrichedSignatures,
       };
     } catch (error) {
       lastError = error;

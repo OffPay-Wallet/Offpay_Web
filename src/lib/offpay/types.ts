@@ -63,6 +63,37 @@ export type WalletPortfolio = {
   tokens: WalletTokenBalance[];
 };
 
+export type WalletTransactionAsset = {
+  mint: string;
+  decimals?: number;
+  rawAmountChange?: string;
+  uiAmountChange?: number | null;
+  logo?: string | null;
+  name?: string;
+  symbol?: string;
+};
+
+export type WalletTransactionKind =
+  | "sent"
+  | "received"
+  | "swapped"
+  | "shielded"
+  | "unshielded"
+  | "failed"
+  | "unknown";
+
+export type WalletTransactionTone =
+  | "positive"
+  | "negative"
+  | "neutral"
+  | "failed";
+
+export type WalletTransactionSummary = {
+  kind: WalletTransactionKind;
+  label: string;
+  tone: WalletTransactionTone;
+};
+
 export type WalletTransactionSignature = {
   signature: string;
   slot: number | null;
@@ -70,6 +101,10 @@ export type WalletTransactionSignature = {
   memo: string | null;
   failed: boolean;
   confirmationStatus: string | null;
+  explorerUrl?: string | null;
+  asset?: WalletTransactionAsset | null;
+  assets?: WalletTransactionAsset[];
+  summary?: WalletTransactionSummary | null;
 };
 
 export type WalletTransactionsResponse = {

@@ -36,6 +36,9 @@ OFFPAY_ALLOWED_WEB_ORIGINS=
 OFFPAY_WEB_SESSION_SECRET=
 OFFPAY_DEBUG_LOGS=
 OFFPAY_ALLOW_LOCALHOST_ORIGINS=
+OFFPAY_SOLANA_MAINNET_EXPLORER_TX_URL_TEMPLATE=
+OFFPAY_SOLANA_DEVNET_EXPLORER_TX_URL_TEMPLATE=
+OFFPAY_SOLANA_TESTNET_EXPLORER_TX_URL_TEMPLATE=
 HELIUS_DEVNET_API_KEY=
 HELIUS_MAINNET_API_KEY=
 HELIUS_DEVNET_RPC_URL=
@@ -84,6 +87,9 @@ npx wrangler secret put OFFPAY_ALLOWED_WEB_ORIGINS --config workers/web-gateway/
 npx wrangler secret put OFFPAY_WEB_SESSION_SECRET --config workers/web-gateway/wrangler.toml
 npx wrangler secret put OFFPAY_DEBUG_LOGS --config workers/web-gateway/wrangler.toml
 npx wrangler secret put OFFPAY_ALLOW_LOCALHOST_ORIGINS --config workers/web-gateway/wrangler.toml
+npx wrangler secret put OFFPAY_SOLANA_MAINNET_EXPLORER_TX_URL_TEMPLATE --config workers/web-gateway/wrangler.toml
+npx wrangler secret put OFFPAY_SOLANA_DEVNET_EXPLORER_TX_URL_TEMPLATE --config workers/web-gateway/wrangler.toml
+npx wrangler secret put OFFPAY_SOLANA_TESTNET_EXPLORER_TX_URL_TEMPLATE --config workers/web-gateway/wrangler.toml
 npx wrangler secret put HELIUS_DEVNET_API_KEY --config workers/web-gateway/wrangler.toml
 npx wrangler secret put HELIUS_MAINNET_API_KEY --config workers/web-gateway/wrangler.toml
 npx wrangler secret put HELIUS_DEVNET_RPC_URL --config workers/web-gateway/wrangler.toml
