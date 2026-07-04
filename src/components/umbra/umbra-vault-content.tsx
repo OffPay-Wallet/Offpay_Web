@@ -3,11 +3,17 @@ import { AlertCircle, LockKeyhole, RefreshCw } from "lucide-react";
 import { AssetAvatar } from "@/components/dashboard/asset-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { UmbraEncryptedBalance } from "@/lib/offpay/umbra-vault-execution";
 import type { UmbraVaultHolding, WalletTokenMetadata } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
 
+import { formatAtomicAmount } from "./umbra-vault-validation";
+
 type VaultContentProps = {
   compact: boolean;
+  decryptedBalances?: Map<string, UmbraEncryptedBalance> | undefined;
+  decryptedError?: Error | null;
+  decryptedLoading?: boolean;
   error: Error | null;
   holdings: UmbraVaultHolding[];
   isError: boolean;
@@ -19,6 +25,9 @@ type VaultContentProps = {
 
 export function VaultContent({
   compact,
+  decryptedBalances,
+  decryptedError,
+  decryptedLoading = false,
   error,
   holdings,
   isError,
@@ -62,6 +71,9 @@ export function VaultContent({
       {holdings.map((holding) => (
         <HoldingRow
           key={holding.mint}
+          balance={decryptedBalances?.get(holding.mint)}
+          balanceError={Boolean(decryptedError)}
+          balanceLoading={decryptedLoading}
           compact={compact}
           holding={holding}
           logo={logoByMint[holding.mint]?.logo ?? null}
@@ -109,10 +121,16 @@ function VaultRowsSkeleton({ compact }: { compact: boolean }) {
 }
 
 function HoldingRow({
+  balance,
+  balanceError,
+  balanceLoading,
   compact,
   holding,
   logo,
 }: {
+  balance: UmbraEncryptedBalance | undefined;
+  balanceError: boolean;
+  balanceLoading: boolean;
   compact: boolean;
   holding: UmbraVaultHolding;
   logo: string | null;
@@ -138,11 +156,76 @@ function HoldingRow({
           </p>
         </div>
       </div>
-      <Badge tone="success" className="shrink-0">
-        {holding.balanceLabel}
-      </Badge>
+      <HoldingBalance
+        balance={balance}
+        balanceError={balanceError}
+        balanceLoading={balanceLoading}
+        holding={holding}
+      />
     </div>
   );
+}
+
+function HoldingBalance({
+  balance,
+  balanceError,
+  balanceLoading,
+  holding,
+}: {
+  balance: UmbraEncryptedBalance | undefined;
+  balanceError: boolean;
+  balanceLoading: boolean;
+  holding: UmbraVaultHolding;
+}) {
+  const decrypted = decryptedAmountText(balance, holding);
+
+  if (decrypted != null) {
+    return (
+      <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
+        {decrypted}
+      </span>
+    );
+  }
+
+  if (balance?.state === "pending") {
+    return (
+      <Badge tone="warning" className="shrink-0">
+        Syncing
+      </Badge>
+    );
+  }
+
+  if (balanceLoading) {
+    return (
+      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+        Decrypting...
+      </span>
+    );
+  }
+
+  if (balanceError) {
+    return (
+      <Badge tone="danger" className="shrink-0">
+        Unavailable
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge tone="success" className="shrink-0">
+      {holding.balanceLabel}
+    </Badge>
+  );
+}
+
+function decryptedAmountText(
+  balance: UmbraEncryptedBalance | undefined,
+  holding: UmbraVaultHolding,
+): string | null {
+  if (!balance || balance.amountAtomic == null || balance.state === "pending") return null;
+  if (holding.decimals == null) return null;
+
+  return `${formatAtomicAmount(balance.amountAtomic, holding.decimals)} ${holding.symbol}`;
 }
 
 function truncateMint(value: string): string {

@@ -48,6 +48,21 @@ export type UmbraVaultRegistrationResult = {
   signatureLabel: string | null;
 };
 
+export type UmbraEncryptedBalanceState = "readable" | "pending" | "empty";
+
+export type UmbraEncryptedBalance = {
+  amountAtomic: bigint | null;
+  mint: string;
+  state: UmbraEncryptedBalanceState;
+};
+
+export type UmbraEncryptedBalancesInput = {
+  cluster: SolanaCluster;
+  gatewayOrigin: string | undefined;
+  mints: string[];
+  wallet: ConnectedStandardSolanaWallet | undefined;
+};
+
 const masterSeedCache = new Map<string, MasterSeed>();
 const umbraClientCache = new Map<
   string,
@@ -199,23 +214,46 @@ async function registerConfidentialUser(client: IUmbraClient): Promise<unknown> 
   });
 }
 
-async function readEncryptedBalance(client: IUmbraClient, mint: Address): Promise<bigint> {
+async function queryEncryptedBalances(
+  client: IUmbraClient,
+  mints: Address[],
+): Promise<Map<string, UmbraEncryptedBalance>> {
   const query = getEncryptedBalanceQuerierFunction({ client });
-  const balances = await query([mint]);
-  const balance = balances.get(mint);
+  const balances = await query(mints);
+  const result = new Map<string, UmbraEncryptedBalance>();
 
-  if (!balance || balance.state === "non_existent" || balance.state === "uninitialized") {
-    return 0n;
+  for (const mint of mints) {
+    const balance = balances.get(mint);
+
+    if (!balance || balance.state === "non_existent" || balance.state === "uninitialized") {
+      result.set(mint, { amountAtomic: 0n, mint, state: "empty" });
+      continue;
+    }
+
+    if (balance.state === "mxe") {
+      result.set(mint, { amountAtomic: null, mint, state: "pending" });
+      continue;
+    }
+
+    result.set(mint, { amountAtomic: balance.balance, mint, state: "readable" });
   }
 
-  if (balance.state === "mxe") {
+  return result;
+}
+
+async function readEncryptedBalance(client: IUmbraClient, mint: Address): Promise<bigint> {
+  const balance = (await queryEncryptedBalances(client, [mint])).get(mint);
+
+  if (!balance || balance.state === "empty") return 0n;
+
+  if (balance.state === "pending" || balance.amountAtomic == null) {
     throw new UmbraVaultExecutionError(
       "encrypted_balance_pending",
       "Encrypted balance is not readable until Umbra finishes shared-mode setup.",
     );
   }
 
-  return balance.balance;
+  return balance.amountAtomic;
 }
 
 function signatureLabel(result: unknown): string | null {
@@ -242,6 +280,31 @@ export async function executeUmbraVaultRegistration({
   const result = await registerConfidentialUser(client);
 
   return { signatureLabel: signatureLabel(result) };
+}
+
+export async function readUmbraEncryptedBalances({
+  cluster,
+  gatewayOrigin,
+  mints,
+  wallet,
+}: UmbraEncryptedBalancesInput): Promise<Map<string, UmbraEncryptedBalance>> {
+  if (!wallet) {
+    throw new UmbraVaultExecutionError("wallet_missing", "Connect wallet first.");
+  }
+
+  if (mints.length === 0) return new Map();
+
+  const client = await createUmbraClient({ cluster, gatewayOrigin, wallet });
+  const mintAddresses = mints.map((mint) => address(mint));
+  const balances = await queryEncryptedBalances(client, mintAddresses);
+
+  // Re-key by the original mint string so callers can look up by holding.mint.
+  const result = new Map<string, UmbraEncryptedBalance>();
+  for (const mint of mints) {
+    result.set(mint, balances.get(address(mint)) ?? { amountAtomic: null, mint, state: "pending" });
+  }
+
+  return result;
 }
 
 export async function executeUmbraVaultAction({

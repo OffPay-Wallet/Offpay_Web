@@ -67,6 +67,14 @@ function requireOutput<TOutput>(output: TOutput | undefined, action: string): TO
   return output;
 }
 
+function messageCacheKey(message: Uint8Array): string {
+  let key = "";
+  for (let index = 0; index < message.length; index += 1) {
+    key += (message[index] ?? 0).toString(16).padStart(2, "0");
+  }
+  return key;
+}
+
 export function mergeUmbraTransactionSignatures(
   transaction: SignableTransaction,
   walletSignatures: SignableTransaction["signatures"],
@@ -135,20 +143,37 @@ export function createUmbraWalletSigner({
     "signMessage",
   );
   const encoder = getTransactionEncoder();
+  // The Umbra SDK derives the master seed through two independent paths
+  // (getMasterSeed and getSchemeMasterSeed), each of which signs the identical
+  // consent message. Memoizing by message content collapses those into a single
+  // wallet prompt, and caching the in-flight promise also dedupes concurrent calls.
+  const messageSignatureCache = new Map<string, Promise<SignedMessage>>();
 
   return {
     address: signerAddress,
-    signMessage: async (message): Promise<SignedMessage> => {
-      const output = requireOutput(
-        (await signMessageFeature.signMessage({ account, message }))[0],
-        "message signature",
-      );
+    signMessage: (message): Promise<SignedMessage> => {
+      const cacheKey = messageCacheKey(message);
+      const cached = messageSignatureCache.get(cacheKey);
+      if (cached) return cached;
 
-      return {
-        message,
-        signature: output.signature as SignedMessage["signature"],
-        signer: signerAddress,
-      };
+      const pending = (async (): Promise<SignedMessage> => {
+        const output = requireOutput(
+          (await signMessageFeature.signMessage({ account, message }))[0],
+          "message signature",
+        );
+
+        return {
+          message,
+          signature: output.signature as SignedMessage["signature"],
+          signer: signerAddress,
+        };
+      })();
+
+      messageSignatureCache.set(cacheKey, pending);
+      pending.catch(() => {
+        messageSignatureCache.delete(cacheKey);
+      });
+      return pending;
     },
     signTransaction: async (transaction) => {
       debugLog("umbra.wallet_sign.start", {
