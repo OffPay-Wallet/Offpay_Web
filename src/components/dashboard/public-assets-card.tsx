@@ -3,21 +3,27 @@ import { Coins, RefreshCw, TriangleAlert } from "lucide-react";
 import { AssetRow, assetRowGridClass } from "@/components/dashboard/asset-row";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/offpay/display";
-import { nativeSolMint } from "@/lib/offpay/portfolio-valuation";
+import {
+  nativeSolMint,
+  type PortfolioValueChange,
+} from "@/lib/offpay/portfolio-valuation";
 import { nativeSolMeta, resolveTokenMeta } from "@/lib/offpay/tokens";
 import type { SolanaCluster, WalletPortfolio, WalletTokenBalance } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
 
 const emptyUnitUsdPrices: Readonly<Record<string, number>> = Object.freeze({});
+const emptyValueChanges: Readonly<Record<string, PortfolioValueChange>> = Object.freeze({});
 
 export function PublicAssetsCard({
   cluster,
   error,
   gatewayConfigured,
+  holdingValueChanges = emptyValueChanges,
   isError,
   isFetching,
   isLoading,
   onRetry,
+  pnlTimeframeLabel,
   portfolio,
   unitUsdPrices = emptyUnitUsdPrices,
   walletAddress,
@@ -25,10 +31,12 @@ export function PublicAssetsCard({
   cluster: SolanaCluster;
   error: unknown;
   gatewayConfigured: boolean;
+  holdingValueChanges?: Readonly<Record<string, PortfolioValueChange>>;
   isError: boolean;
   isFetching: boolean;
   isLoading: boolean;
   onRetry: () => void;
+  pnlTimeframeLabel?: string | undefined;
   portfolio: WalletPortfolio | undefined;
   unitUsdPrices?: Readonly<Record<string, number>>;
   walletAddress: string | undefined;
@@ -45,10 +53,12 @@ export function PublicAssetsCard({
         cluster={cluster}
         error={error}
         gatewayConfigured={gatewayConfigured}
+        holdingValueChanges={holdingValueChanges}
         isError={isError}
         isFetching={isFetching}
         isLoading={isLoading}
         onRetry={onRetry}
+        pnlTimeframeLabel={pnlTimeframeLabel}
         portfolio={portfolio}
         unitUsdPrices={unitUsdPrices}
         walletAddress={walletAddress}
@@ -57,7 +67,11 @@ export function PublicAssetsCard({
   );
 }
 
-function AssetTableHeader() {
+function AssetTableHeader({
+  pnlTimeframeLabel,
+}: {
+  pnlTimeframeLabel?: string | undefined;
+}) {
   return (
     <div
       className={cn(
@@ -66,9 +80,11 @@ function AssetTableHeader() {
       )}
     >
       <span>Asset</span>
+      <span>Price</span>
       <span>Balance</span>
       <span>Value</span>
-      <span aria-hidden="true" />
+      <span>{pnlTimeframeLabel ? `${pnlTimeframeLabel} PNL` : "PNL"}</span>
+      <span className="text-center">Actions</span>
     </div>
   );
 }
@@ -77,10 +93,12 @@ function PublicAssetsContent({
   cluster,
   error,
   gatewayConfigured,
+  holdingValueChanges,
   isError,
   isFetching,
   isLoading,
   onRetry,
+  pnlTimeframeLabel,
   portfolio,
   unitUsdPrices,
   walletAddress,
@@ -88,10 +106,12 @@ function PublicAssetsContent({
   cluster: SolanaCluster;
   error: unknown;
   gatewayConfigured: boolean;
+  holdingValueChanges: Readonly<Record<string, PortfolioValueChange>>;
   isError: boolean;
   isFetching: boolean;
   isLoading: boolean;
   onRetry: () => void;
+  pnlTimeframeLabel?: string | undefined;
   portfolio: WalletPortfolio | undefined;
   unitUsdPrices: Readonly<Record<string, number>>;
   walletAddress: string | undefined;
@@ -159,9 +179,10 @@ function PublicAssetsContent({
 
   return (
     <div>
-      <AssetTableHeader />
+      <AssetTableHeader pnlTimeframeLabel={pnlTimeframeLabel} />
       <div className="divide-y divide-border">
         <AssetRow
+          change={holdingValueChanges[nativeSolMint] ?? null}
           name={nativeSolMeta.name}
           symbol={nativeSolMeta.symbol}
           logo={portfolio.sol.logo}
@@ -176,6 +197,7 @@ function PublicAssetsContent({
           return (
             <AssetRow
               key={`${token.programId ?? "api-worker"}:${token.mint}`}
+              change={holdingValueChanges[token.mint] ?? null}
               name={token.name ?? meta.name}
               symbol={symbol}
               logo={token.logo}

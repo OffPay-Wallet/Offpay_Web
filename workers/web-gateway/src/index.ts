@@ -35,6 +35,7 @@ import {
 } from "./observability";
 import { fetchWalletPortfolioFromRpc, RpcBalanceError } from "./rpc-balance";
 import { fetchWalletSignaturesFromRpc } from "./rpc-transactions";
+import { fetchTokenDisplayMetadataForCluster } from "./token-metadata";
 import {
   createChallenge,
   createSessionToken,
@@ -72,6 +73,10 @@ const publicTransactionsSchema = z.object({
   network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
   limit: z.coerce.number().int().min(1).max(25).optional(),
   before: z.string().min(1).max(128).optional(),
+});
+const publicTokenMetadataSchema = z.object({
+  network: z.enum(["solana:devnet", "solana:testnet", "solana:mainnet"]),
+  mints: z.string().min(1).max(4000),
 });
 
 function sessionSecret(env: GatewayEnv): string | undefined {
@@ -497,6 +502,48 @@ app.get(
       return fail(c, 502, {
         code: "transactions_unavailable",
         message: "Unable to read wallet transactions from configured Solana RPC providers.",
+      });
+    }
+  },
+);
+
+app.get(
+  "/web/public/token-metadata",
+  zValidator("query", publicTokenMetadataSchema),
+  async (c) => {
+    const input = c.req.valid("query");
+    const mints = Array.from(
+      new Set(input.mints.split(",").map((mint) => mint.trim()).filter(Boolean)),
+    ).slice(0, 50);
+    const startedAtMs = nowMs();
+
+    gatewayDebugLog(c, "public_token_metadata.start", {
+      cluster: input.network,
+      mintCount: mints.length,
+    });
+
+    try {
+      const metadata = await fetchTokenDisplayMetadataForCluster({
+        cluster: input.network,
+        env: c.env,
+        mints,
+      });
+      const durationMs = durationSince(startedAtMs);
+
+      appendServerTiming(c, "metadata", durationMs);
+      gatewayDebugLog(c, "public_token_metadata.success", {
+        durationMs: roundedDurationMs(durationMs),
+        entryCount: metadata.size,
+      });
+      return ok(c, { metadata: Object.fromEntries(metadata) });
+    } catch {
+      appendServerTiming(c, "metadata", durationSince(startedAtMs));
+      gatewayWarnLog(c, "public_token_metadata.unknown_error", {
+        cluster: input.network,
+      });
+      return fail(c, 502, {
+        code: "token_metadata_unavailable",
+        message: "Unable to read token metadata from configured Solana RPC providers.",
       });
     }
   },

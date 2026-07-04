@@ -47,6 +47,24 @@ body {
   overscroll-behavior: none;
 }
 
+/* Remove the mobile tap-highlight flash and touch/mouse focus outlines so the
+   mobile experience matches desktop. Keyboard focus (:focus-visible) rings are
+   preserved for accessibility. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Recharts marks its chart surface focusable for keyboard a11y; suppress the
+   outline on touch/mouse focus but keep it for keyboard focus. */
+.recharts-wrapper:focus:not(:focus-visible),
+.recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Hide scrollbars app-wide while preserving scroll behaviour. */
 * {
   scrollbar-width: none; /* Firefox */

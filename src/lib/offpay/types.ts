@@ -186,6 +186,18 @@ export type SwapTokenListResponse = {
   fetchedAt: number;
 };
 
+export type WalletTokenMetadata = {
+  symbol?: string;
+  name?: string;
+  logo?: string | null;
+  verified?: boolean;
+  spam?: boolean;
+};
+
+export type TokenMetadataResponse = {
+  metadata: Record<string, WalletTokenMetadata>;
+};
+
 export type WebGatewayRequestContext = {
   requestId: string;
   session?: WebSession;

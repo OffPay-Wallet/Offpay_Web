@@ -118,6 +118,14 @@ export const manualWorkflowRoutes = [
   },
   {
     method: "GET",
+    path: "/web/public/token-metadata",
+    capability: "token-metadata",
+    implemented: true,
+    public: true,
+    configGroups: ["devnet-rpc-http", "mainnet-rpc-http"],
+  },
+  {
+    method: "GET",
     path: "/web/balances",
     capability: "wallet-balance",
     implemented: true,

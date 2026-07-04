@@ -30,12 +30,14 @@ export function WalletDashboardHeader({
 
   return (
     <header className="font-sans">
-      <h1 className="text-2xl font-semibold leading-tight text-foreground">
-        {greeting}
-      </h1>
-      <p className="mt-1 text-sm font-semibold leading-5 text-muted-foreground">
-        {summary}
-      </p>
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold leading-tight text-foreground">
+          {greeting}
+        </h1>
+        <p className="mt-1 text-sm font-semibold leading-5 text-muted-foreground">
+          {summary}
+        </p>
+      </div>
     </header>
   );
 }

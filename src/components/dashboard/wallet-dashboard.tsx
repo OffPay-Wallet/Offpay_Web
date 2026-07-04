@@ -376,10 +376,12 @@ export function WalletDashboard() {
         cluster={cluster}
         error={balancesQuery.error}
         gatewayConfigured={Boolean(gatewayOrigin)}
+        holdingValueChanges={portfolioPricing?.holdingValueChanges ?? {}}
         isError={balancesQuery.isError}
         isFetching={balancesQuery.isFetching}
         isLoading={balancesQuery.isLoading}
         onRetry={() => void balancesQuery.refetch()}
+        pnlTimeframeLabel={portfolioPricing?.timeframeLabel}
         portfolio={portfolio}
         unitUsdPrices={portfolioPricing?.valuation.unitUsdPrices ?? {}}
         walletAddress={walletAddress}

@@ -70,40 +70,32 @@ export function WalletAccountControl() {
   return (
     <div className="min-w-0">
       <div
-        className="inline-flex max-w-full items-center gap-5 font-sans text-xs font-bold text-foreground"
+        className="inline-flex max-w-full items-center gap-1.5 font-sans text-sm font-bold text-foreground"
         aria-label="Wallet account"
       >
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate font-sans tabular-nums">
-            {addressLabel}
-          </span>
-          <button
-            type="button"
-            onClick={copyAddress}
-            className={cn(
-              "flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-foreground",
-              "transition-colors duration-150 focus-visible:outline-none",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              copyStatus === "copied" && "text-success",
-            )}
-            aria-label="Copy wallet address"
-          >
-            <CopyIcon
-              className={cn(
-                "h-4 w-4",
-                copyStatus === "copied" && "motion-safe:animate-bounce",
-              )}
-              aria-hidden="true"
-            />
-          </button>
-        </div>
+        <span className="min-w-0 truncate px-1 font-sans tabular-nums">
+          {addressLabel}
+        </span>
+        <button
+          type="button"
+          onClick={copyAddress}
+          className={cn(
+            "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground",
+            "transition-colors duration-150 hover:bg-secondary/60 hover:text-foreground focus-visible:outline-none",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            copyStatus === "copied" && "text-success",
+          )}
+          aria-label="Copy wallet address"
+        >
+          <CopyIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
         <button
           type="button"
           onClick={() => void disconnectAccount()}
           disabled={disconnecting}
           className={cn(
-            "flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm text-destructive",
-            "transition-colors duration-150",
+            "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-destructive",
+            "transition-colors duration-150 hover:bg-destructive/15",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",
           )}
