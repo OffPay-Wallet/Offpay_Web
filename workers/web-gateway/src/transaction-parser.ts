@@ -311,6 +311,79 @@ export function pickInstructionAssets({
   return mergeTokenAssets(assets);
 }
 
+function buildTokenAccountOwnerMap(
+  transaction: Record<string, unknown>,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  const meta = readRecord(transaction.meta);
+
+  for (const key of ["preTokenBalances", "postTokenBalances"] as const) {
+    const balances = meta?.[key];
+    if (!Array.isArray(balances)) continue;
+
+    for (const balance of balances) {
+      const record = readRecord(balance);
+      const owner = readString(record?.owner);
+      const accountIndex = readInteger(record?.accountIndex);
+      const account = accountIndex == null ? null : readAccountKeyAt(transaction, accountIndex);
+      if (account && owner) map.set(account, owner);
+    }
+  }
+
+  return map;
+}
+
+// Best-effort counterparty (the non-wallet owner) of the primary value transfer.
+// Resolves SPL token accounts to their owners; SOL system transfers already use
+// owner addresses. Returns null when no clear counterparty exists (e.g. swaps).
+export function pickTransferCounterparty({
+  address,
+  transaction,
+}: {
+  address: string;
+  transaction: Record<string, unknown>;
+}): string | null {
+  const ownerByAccount = buildTokenAccountOwnerMap(transaction);
+  const flows: { from: string | null; to: string | null }[] = [];
+
+  for (const instruction of collectInstructions(transaction)) {
+    const programId = readString(instruction.programId);
+    const parsed = readRecord(instruction.parsed);
+    const type = readString(parsed?.type);
+    const info = readRecord(parsed?.info);
+    if (!info) continue;
+
+    if (programId === systemProgramId && type === "transfer") {
+      flows.push({ from: readString(info.source), to: readString(info.destination) });
+      continue;
+    }
+
+    if (type === "transfer" || type === "transferChecked") {
+      const sourceAccount = readString(info.source);
+      const destinationAccount = readString(info.destination);
+      const authority = readString(info.authority) ?? readString(info.multisigAuthority);
+      const from =
+        (sourceAccount ? ownerByAccount.get(sourceAccount) : null) ?? authority ?? sourceAccount;
+      const to =
+        (destinationAccount ? ownerByAccount.get(destinationAccount) : null) ??
+        destinationAccount;
+      flows.push({ from: from ?? null, to: to ?? null });
+    }
+  }
+
+  for (const { from, to } of flows) {
+    if (from === address && to && to !== address) return to;
+    if (to === address && from && from !== address) return from;
+  }
+
+  for (const { from, to } of flows) {
+    if (to && to !== address) return to;
+    if (from && from !== address) return from;
+  }
+
+  return null;
+}
+
 export function pickNativeSolAsset({
   address,
   transaction,

@@ -13,6 +13,7 @@
     "worker:secret:list": "wrangler secret list --config workers/web-gateway/wrangler.toml",
     "test": "vitest run",
     "audit:prod": "npm audit --omit=dev",
+    "verify": "npm run typecheck && npm run worker:typecheck && npm run lint && npm run test",
     "check": "npm run typecheck && npm run worker:typecheck && npm run lint && npm run test && npm run audit:prod"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "jose": "^6.2.3",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.23.0",
+    "motion": "12.42.2",
     "next": "16.2.10",
     "qrcode": "^1.5.4",
     "react": "19.2.4",

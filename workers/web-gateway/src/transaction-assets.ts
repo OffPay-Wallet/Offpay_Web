@@ -18,6 +18,7 @@ import {
   pickInstructionAssets,
   pickNativeSolAsset,
   pickTokenAssetCandidates,
+  pickTransferCounterparty,
   tokenProgramIds,
   type TransactionAssetCandidate,
 } from "./transaction-parser";
@@ -25,6 +26,7 @@ import type { GatewayEnv } from "./types";
 
 type SignatureDetails = {
   assets: TransactionAssetCandidate[];
+  counterparty: string | null;
   summary: WalletTransactionSummary | null;
 };
 
@@ -90,7 +92,7 @@ async function fetchSignatureDetails({
     ]);
     const transaction = readRecord(rawResult);
 
-    if (!transaction) return { assets: [], summary: null };
+    if (!transaction) return { assets: [], counterparty: null, summary: null };
 
     const tokenAssets = pickTokenAssetCandidates({ address, ownedTokenAccounts, transaction });
     const nativeSolAsset = pickNativeSolAsset({ address, transaction });
@@ -110,6 +112,7 @@ async function fetchSignatureDetails({
 
     return {
       assets,
+      counterparty: pickTransferCounterparty({ address, transaction }),
       summary: classifyTransaction({
         assets,
         cluster,
@@ -119,7 +122,7 @@ async function fetchSignatureDetails({
       }),
     };
   } catch {
-    return { assets: [], summary: null };
+    return { assets: [], counterparty: null, summary: null };
   }
 }
 
@@ -187,6 +190,7 @@ export async function enrichSignaturesWithAssets({
       ...(explorerUrl ? { explorerUrl } : {}),
       ...(asset ? { asset, assets } : {}),
       ...(details.summary ? { summary: details.summary } : {}),
+      ...(details.counterparty ? { counterparty: details.counterparty } : {}),
     };
   });
 }

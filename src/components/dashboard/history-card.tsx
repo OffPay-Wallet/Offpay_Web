@@ -3,25 +3,28 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Copy,
   ExternalLink,
-  ReceiptText,
   TriangleAlert,
-  XCircle,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { AssetAvatar } from "@/components/dashboard/asset-avatar";
+import {
+  HistoryEntryIcon,
+  HistoryStatusBadge,
+  HistoryTableHeader,
+  historyRowGridClass,
+} from "@/components/dashboard/history-parts";
 import {
   amountToneClass,
   formatRelativeTime,
   formatTransactionAmount,
   shortenSignature,
 } from "@/components/dashboard/history-format";
+import { TransactionDetailsDialog } from "@/components/dashboard/transaction-details-dialog";
 import { Button } from "@/components/ui/button";
 import { readGatewayWalletTransactions } from "@/lib/offpay/gateway-client";
 import type { SolanaCluster, WalletTransactionSignature } from "@/lib/offpay/types";
@@ -29,81 +32,7 @@ import { cn } from "@/lib/utils";
 
 const pageSize = 5;
 type CopyStatus = "copied" | "failed";
-
-// Shared column template so the header and every row align their columns.
-const historyRowGridClass =
-  "grid grid-cols-[1fr_auto] items-center gap-3 sm:grid-cols-[minmax(0,1.7fr)_1fr_1fr_9rem]";
-
-function HistoryTableHeader() {
-  return (
-    <div
-      className={cn(
-        historyRowGridClass,
-        "hidden border-b border-border/60 px-4 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:grid",
-      )}
-    >
-      <span>Transaction</span>
-      <span>Amount</span>
-      <span>Date</span>
-      <span className="text-center">Status</span>
-    </div>
-  );
-}
-
-function HistoryStatusBadge({ entry }: { entry: WalletTransactionSignature }) {
-  const rawStatus = entry.failed ? "Failed" : entry.confirmationStatus ?? "Pending";
-  const normalized = rawStatus.toLowerCase();
-  const isConfirmed = normalized === "finalized" || normalized === "confirmed";
-  const isPending = !entry.failed && !isConfirmed;
-  const Icon = entry.failed ? XCircle : isConfirmed ? CheckCircle2 : Clock3;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.6875rem] font-medium capitalize ring-1 ring-inset",
-        entry.failed && "bg-loss/15 text-loss ring-loss/25",
-        isConfirmed && "bg-gain/15 text-gain ring-gain/25",
-        isPending && "bg-warning/15 text-warning ring-warning/25",
-      )}
-    >
-      <Icon className="h-3 w-3" aria-hidden="true" />
-      {rawStatus}
-    </span>
-  );
-}
-
-function HistoryEntryIcon({ entry }: { entry: WalletTransactionSignature }) {
-  const logoAsset =
-    entry.assets?.find((asset) => asset.logo) ?? (entry.asset?.logo ? entry.asset : null);
-
-  if (logoAsset?.logo) {
-    const symbol = logoAsset.symbol;
-
-    return (
-      <AssetAvatar
-        logo={logoAsset.logo}
-        name={logoAsset.name ?? logoAsset.symbol ?? logoAsset.mint}
-        {...(symbol ? { symbol } : {})}
-      />
-    );
-  }
-
-  return (
-    <span
-      className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-        entry.failed ? "bg-destructive/15 text-destructive" : "bg-secondary/60 text-foreground",
-      )}
-      aria-hidden="true"
-    >
-      {entry.failed ? (
-        <XCircle className="h-4 w-4" />
-      ) : (
-        <ReceiptText className="h-4 w-4" />
-      )}
-    </span>
-  );
-}
+type SelectHandler = (entry: WalletTransactionSignature, element: HTMLElement) => void;
 
 export function HistoryCard({
   cluster,
@@ -117,6 +46,11 @@ export function HistoryCard({
   // Cursor stack: each entry is the `before` signature for its page; the first
   // page has no cursor. Pushing/popping drives Next/Prev pagination.
   const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+  const [detail, setDetail] = useState<{
+    entry: WalletTransactionSignature;
+    originRect: DOMRect;
+  } | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const before = cursors[cursors.length - 1];
   const pageIndex = cursors.length;
 
@@ -138,10 +72,7 @@ export function HistoryCard({
         ...(before ? { before } : {}),
       });
 
-      if (!envelope.ok) {
-        throw new Error(envelope.error.message);
-      }
-
+      if (!envelope.ok) throw new Error(envelope.error.message);
       return envelope.data;
     },
   });
@@ -157,6 +88,11 @@ export function HistoryCard({
   const goPrev = () => {
     setCursors((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   };
+
+  const handleSelect = useCallback<SelectHandler>((entry, element) => {
+    setDetail({ entry, originRect: element.getBoundingClientRect() });
+    setDetailOpen(true);
+  }, []);
 
   return (
     <section className="rounded-[28px] border border-border/60 bg-card/80 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm">
@@ -175,6 +111,7 @@ export function HistoryCard({
           isError={query.isError}
           isFetching={query.isFetching}
           error={query.error}
+          onSelect={handleSelect}
           signatures={signatures}
           walletAddress={walletAddress}
         />
@@ -204,6 +141,14 @@ export function HistoryCard({
           </Button>
         </div>
       </div>
+
+      <TransactionDetailsDialog
+        cluster={cluster}
+        entry={detail?.entry ?? null}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        originRect={detail?.originRect ?? null}
+      />
     </section>
   );
 }
@@ -214,6 +159,7 @@ function HistoryBody({
   isError,
   isFetching,
   isLoading,
+  onSelect,
   signatures,
   walletAddress,
 }: {
@@ -222,39 +168,30 @@ function HistoryBody({
   isError: boolean;
   isFetching: boolean;
   isLoading: boolean;
+  onSelect: SelectHandler;
   signatures: WalletTransactionSignature[];
   walletAddress: string | undefined;
 }) {
-  const [copyState, setCopyState] = useState<{
-    signature: string;
-    status: CopyStatus;
-  } | null>(null);
+  const [copyState, setCopyState] = useState<{ signature: string; status: CopyStatus } | null>(
+    null,
+  );
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (resetTimerRef.current) {
-        clearTimeout(resetTimerRef.current);
-      }
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     };
   }, []);
 
-  const setTemporaryCopyState = (signature: string, status: CopyStatus) => {
-    if (resetTimerRef.current) {
-      clearTimeout(resetTimerRef.current);
-    }
+  const copySignature = async (signature: string) => {
+    const status: CopyStatus = await navigator.clipboard
+      .writeText(signature)
+      .then((): CopyStatus => "copied")
+      .catch((): CopyStatus => "failed");
 
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     setCopyState({ signature, status });
     resetTimerRef.current = setTimeout(() => setCopyState(null), 1200);
-  };
-
-  const copySignature = async (signature: string) => {
-    try {
-      await navigator.clipboard.writeText(signature);
-      setTemporaryCopyState(signature, "copied");
-    } catch {
-      setTemporaryCopyState(signature, "failed");
-    }
   };
 
   if (!walletAddress || !enabled) {
@@ -302,88 +239,15 @@ function HistoryBody({
     <div>
       <HistoryTableHeader />
       <ul className={cn("divide-y divide-border", isFetching && "opacity-60")}>
-        {signatures.map((entry) => {
-          const explorerUrl = entry.explorerUrl;
-          const copyStatus = copyState?.signature === entry.signature ? copyState.status : null;
-          const CopyIcon = copyStatus === "copied" ? Check : Copy;
-          const amountLabel = formatTransactionAmount(entry);
-
-          return (
-            <li key={entry.signature} className={cn(historyRowGridClass, "p-4")}>
-              <div className="flex min-w-0 items-center gap-3">
-                <HistoryEntryIcon entry={entry} />
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-1">
-                    <p className="truncate font-mono text-sm font-semibold">
-                      {shortenSignature(entry.signature)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void copySignature(entry.signature)}
-                      className={cn(
-                        "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground",
-                        "transition-colors duration-150 hover:text-foreground focus-visible:outline-none",
-                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        copyStatus === "copied" && "text-success",
-                        copyStatus === "failed" && "text-destructive",
-                      )}
-                      aria-label="Copy transaction hash"
-                    >
-                      <CopyIcon
-                        className={cn(
-                          "h-4 w-4",
-                          copyStatus === "copied" && "motion-safe:animate-bounce",
-                        )}
-                        aria-hidden="true"
-                      />
-                    </button>
-                    {explorerUrl ? (
-                      <a
-                        href={explorerUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={cn(
-                          "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground",
-                          "transition-colors duration-150 hover:text-foreground focus-visible:outline-none",
-                          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        )}
-                        aria-label="View transaction on explorer"
-                      >
-                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                      </a>
-                    ) : null}
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {entry.summary?.label ?? (entry.failed ? "Failed" : "Success")}
-                    {entry.memo ? ` · ${entry.memo}` : ""}
-                  </p>
-                </div>
-              </div>
-
-              <div className="min-w-0 text-right sm:text-left">
-                <p
-                  className={cn(
-                    "truncate text-sm font-semibold tabular-nums",
-                    amountToneClass(entry),
-                  )}
-                  title={amountLabel}
-                >
-                  {amountLabel}
-                </p>
-              </div>
-
-              <div className="hidden min-w-0 sm:block">
-                <p className="truncate text-xs font-medium tabular-nums text-muted-foreground">
-                  {formatRelativeTime(entry.blockTime)}
-                </p>
-              </div>
-
-              <div className="hidden sm:flex sm:justify-center">
-                <HistoryStatusBadge entry={entry} />
-              </div>
-            </li>
-          );
-        })}
+        {signatures.map((entry) => (
+          <HistoryRow
+            key={entry.signature}
+            entry={entry}
+            copyStatus={copyState?.signature === entry.signature ? copyState.status : null}
+            onCopy={copySignature}
+            onSelect={onSelect}
+          />
+        ))}
       </ul>
       {copyState ? (
         <p className="sr-only" role="status">
@@ -393,5 +257,108 @@ function HistoryBody({
         </p>
       ) : null}
     </div>
+  );
+}
+
+function HistoryRow({
+  copyStatus,
+  entry,
+  onCopy,
+  onSelect,
+}: {
+  copyStatus: CopyStatus | null;
+  entry: WalletTransactionSignature;
+  onCopy: (signature: string) => void;
+  onSelect: SelectHandler;
+}) {
+  const CopyIcon = copyStatus === "copied" ? Check : Copy;
+  const amountLabel = formatTransactionAmount(entry);
+
+  const open = (element: HTMLElement) => onSelect(entry, element);
+
+  return (
+    <li
+      role="button"
+      tabIndex={0}
+      onClick={(event) => open(event.currentTarget)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open(event.currentTarget);
+        }
+      }}
+      className={cn(
+        historyRowGridClass,
+        "cursor-pointer p-4 transition-colors hover:bg-secondary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+      )}
+      aria-label="View transaction details"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <HistoryEntryIcon entry={entry} />
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1">
+            <p className="truncate font-mono text-sm font-semibold">
+              {shortenSignature(entry.signature)}
+            </p>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onCopy(entry.signature);
+              }}
+              className={cn(
+                "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground",
+                "transition-colors duration-150 hover:text-foreground focus-visible:outline-none",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                copyStatus === "copied" && "text-success",
+                copyStatus === "failed" && "text-destructive",
+              )}
+              aria-label="Copy transaction hash"
+            >
+              <CopyIcon className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {entry.explorerUrl ? (
+              <a
+                href={entry.explorerUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className={cn(
+                  "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground",
+                  "transition-colors duration-150 hover:text-foreground focus-visible:outline-none",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                )}
+                aria-label="View transaction on explorer"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </a>
+            ) : null}
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {entry.summary?.label ?? (entry.failed ? "Failed" : "Success")}
+            {entry.memo ? ` · ${entry.memo}` : ""}
+          </p>
+        </div>
+      </div>
+
+      <div className="min-w-0 text-right sm:text-left">
+        <p
+          className={cn("truncate text-sm font-semibold tabular-nums", amountToneClass(entry))}
+          title={amountLabel}
+        >
+          {amountLabel}
+        </p>
+      </div>
+
+      <div className="hidden min-w-0 sm:block">
+        <p className="truncate text-xs font-medium tabular-nums text-muted-foreground">
+          {formatRelativeTime(entry.blockTime)}
+        </p>
+      </div>
+
+      <div className="hidden sm:flex sm:justify-center">
+        <HistoryStatusBadge entry={entry} />
+      </div>
+    </li>
   );
 }

@@ -105,6 +105,7 @@ export type WalletTransactionSignature = {
   asset?: WalletTransactionAsset | null;
   assets?: WalletTransactionAsset[];
   summary?: WalletTransactionSummary | null;
+  counterparty?: string | null;
 };
 
 export type WalletTransactionsResponse = {
