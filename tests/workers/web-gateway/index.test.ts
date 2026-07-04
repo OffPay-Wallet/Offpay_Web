@@ -154,6 +154,53 @@ describe("gateway public balance route", () => {
   });
 });
 
+describe("gateway Umbra holdings route", () => {
+  it("returns server-normalized encrypted holdings for a signed session", async () => {
+    const sessionToken = await createSessionToken(session, secret);
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        active_stealth_pool_indices: ["0"],
+        address: "Relayer111111111111111111111111111111111",
+        supported_mints: ["4oG4sjmopf5MzvTHLE8rpVJ2uyczxfsw2K84SUTpNDx7"],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/umbra/holdings", {
+        headers: {
+          authorization: `Bearer ${sessionToken}`,
+          origin: "http://localhost:3000",
+        },
+      }),
+      {
+        OFFPAY_WEB_SESSION_SECRET: secret,
+        UMBRA_CIRCUIT_VERSION: "V18",
+        UMBRA_INDEXER_URL_DEVNET: "https://indexer.devnet.example.invalid",
+        UMBRA_LOCAL_TEST_MODE: "false",
+        UMBRA_MIN_SDK_VERSION: "5.0.0-rc.6",
+        UMBRA_RELAYER_URL_DEVNET: "https://relayer.devnet.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      data: {
+        activeStealthPoolIndices: ["0"],
+        holdings: [
+          {
+            balanceLabel: "Encrypted",
+            depositEnabled: true,
+            symbol: "dUSDC",
+          },
+        ],
+        network: "devnet",
+      },
+    });
+  });
+});
+
 describe("gateway manual workflow config route", () => {
   it("reports configured route and env groups without exposing values", async () => {
     const response = await app.fetch(
@@ -183,6 +230,11 @@ describe("gateway manual workflow config route", () => {
             method: "POST",
             path: "/web/umbra/claim",
             implemented: false,
+          }),
+          expect.objectContaining({
+            method: "GET",
+            path: "/web/umbra/holdings",
+            implemented: true,
           }),
         ]),
       },

@@ -32,6 +32,13 @@ enabled = true
 # npx wrangler secret put ALCHEMY_PRICE_API_ORIGIN --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put ALCHEMY_PRICE_API_KEY --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put JUPITER_API_KEY --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_INDEXER_URL_DEVNET --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_RELAYER_URL_DEVNET --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_INDEXER_URL_MAINNET --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_RELAYER_URL_MAINNET --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_CIRCUIT_VERSION --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_MIN_SDK_VERSION --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put UMBRA_LOCAL_TEST_MODE --config workers/web-gateway/wrangler.toml
 #
 # OFFPAY_DEBUG_LOGS enables request and RPC timing console logs
 # when set to 1/true/debug/verbose. Keep it unset unless you are actively diagnosing.

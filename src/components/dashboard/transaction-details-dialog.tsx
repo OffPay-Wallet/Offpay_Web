@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { TokenIcon } from "@/components/dashboard/token-picker";
 import {
   formatTransactionAmount,
+  primaryTransactionAsset,
   shortenSignature,
 } from "@/components/dashboard/history-format";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
@@ -43,10 +44,6 @@ function statusTone(
     tint: confirmed ? "var(--offpay-color-green)" : "var(--offpay-color-silver)",
     confirmed,
   };
-}
-
-function primaryAsset(entry: WalletTransactionSignature) {
-  return entry.assets?.find((asset) => asset.logo) ?? entry.assets?.[0] ?? entry.asset ?? null;
 }
 
 function formatFullDate(blockTime: number | null): string {
@@ -104,7 +101,7 @@ function DetailsBody({
     };
   }, []);
 
-  const asset = primaryAsset(entry);
+  const asset = primaryTransactionAsset(entry);
   const symbol = asset?.symbol && asset.symbol !== asset.mint ? asset.symbol : undefined;
   const title = `${entry.summary?.label ?? (entry.failed ? "Failed transaction" : "Transaction")}${
     symbol ? ` ${symbol}` : ""

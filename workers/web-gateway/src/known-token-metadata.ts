@@ -92,6 +92,26 @@ function knownTokenMetadataForCluster({
   return known;
 }
 
+/**
+ * Devnet stable mints (standard devnet USDC + Offpay/Umbra dUSDC/dUSDT) mapped
+ * to the mainnet mint whose on-chain logo should be borrowed for them, since
+ * devnet DAS has no image for these. The logo is still fetched from the API.
+ */
+export function devnetStableLogoSources(
+  env: GatewayEnv,
+): ReadonlyArray<{ devnetMint: string; mainnetMint: string }> {
+  const pairs: { devnetMint: string; mainnetMint: string }[] = [
+    { devnetMint: devnetUsdcMint, mainnetMint: mainnetUsdcMint },
+    { devnetMint: offpayDevnetDusdcMint, mainnetMint: mainnetUsdcMint },
+    { devnetMint: offpayDevnetDusdtMint, mainnetMint: mainnetUsdtMint },
+  ];
+  const configuredUsdc = readConfiguredMint(env.OFFPAY_DEVNET_USDC_MINT);
+  if (configuredUsdc) pairs.push({ devnetMint: configuredUsdc, mainnetMint: mainnetUsdcMint });
+  const configuredUsdt = readConfiguredMint(env.OFFPAY_DEVNET_USDT_MINT);
+  if (configuredUsdt) pairs.push({ devnetMint: configuredUsdt, mainnetMint: mainnetUsdtMint });
+  return pairs;
+}
+
 export function mergeKnownTokenDisplayMetadata({
   cluster,
   env,

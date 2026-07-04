@@ -3,8 +3,7 @@ import type {
   WalletTokenBalance,
 } from "../../../src/lib/offpay/types";
 import {
-  devnetUsdcMint,
-  mainnetUsdcMint,
+  devnetStableLogoSources,
   mergeKnownTokenDisplayMetadata,
 } from "./known-token-metadata";
 import { configuredUrl, metadataRpcUrl, rpcRequest } from "./rpc-core";
@@ -305,20 +304,17 @@ export async function fetchTokenDisplayMetadataForCluster({
     url ? await fetchTokenDisplayMetadataBatch(url, mints) : [],
   );
 
-  if (cluster === "solana:devnet" && mints.includes(devnetUsdcMint)) {
-    const devnetUsdcMetadata = metadata.get(devnetUsdcMint);
+  if (cluster === "solana:devnet") {
+    const pending = devnetStableLogoSources(env).filter(
+      (pair) => mints.includes(pair.devnetMint) && !metadata.get(pair.devnetMint)?.logo,
+    );
     const mainnetUrl = configuredUrl(env.HELIUS_MAINNET_RPC_URL);
-
-    if (!devnetUsdcMetadata?.logo && mainnetUrl) {
-      const mainnetUsdcMetadata = (
-        await fetchTokenDisplayMetadataBatch(mainnetUrl, [mainnetUsdcMint])
-      ).get(mainnetUsdcMint);
-
-      if (mainnetUsdcMetadata?.logo) {
-        metadata.set(devnetUsdcMint, {
-          ...(devnetUsdcMetadata ?? {}),
-          logo: mainnetUsdcMetadata.logo,
-        });
+    if (pending.length > 0 && mainnetUrl) {
+      const mainnetMints = Array.from(new Set(pending.map((p) => p.mainnetMint)));
+      const mainnetMetadata = await fetchTokenDisplayMetadataBatch(mainnetUrl, mainnetMints);
+      for (const { devnetMint, mainnetMint } of pending) {
+        const logo = mainnetMetadata.get(mainnetMint)?.logo;
+        if (logo) metadata.set(devnetMint, { ...(metadata.get(devnetMint) ?? {}), logo });
       }
     }
   }
@@ -358,34 +354,23 @@ export async function applyDevnetUsdcLogoFromMainnet({
   env: GatewayEnv;
   tokens: WalletTokenBalance[];
 }): Promise<WalletTokenBalance[]> {
-  if (cluster !== "solana:devnet") {
-    return tokens;
-  }
-
-  const needsLogo = tokens.some(
-    (token) => token.mint === devnetUsdcMint && !token.logo,
+  if (cluster !== "solana:devnet") return tokens;
+  const pending = devnetStableLogoSources(env).filter((pair) =>
+    tokens.some((t) => t.mint === pair.devnetMint && !t.logo),
   );
-
-  if (!needsLogo) {
-    return tokens;
-  }
-
+  if (pending.length === 0) return tokens;
   const mainnetUrl = configuredUrl(env.HELIUS_MAINNET_RPC_URL);
-  if (!mainnetUrl) {
-    return tokens;
+  if (!mainnetUrl) return tokens;
+  const mainnetMints = Array.from(new Set(pending.map((p) => p.mainnetMint)));
+  const mainnetMetadata = await fetchTokenDisplayMetadataBatch(mainnetUrl, mainnetMints);
+  const logoByMint = new Map<string, string>();
+  for (const { devnetMint, mainnetMint } of pending) {
+    const logo = mainnetMetadata.get(mainnetMint)?.logo;
+    if (logo) logoByMint.set(devnetMint, logo);
   }
-
-  const mainnetLogo = (
-    await fetchTokenDisplayMetadataBatch(mainnetUrl, [mainnetUsdcMint])
-  ).get(mainnetUsdcMint)?.logo;
-
-  if (!mainnetLogo) {
-    return tokens;
-  }
-
-  return tokens.map((token) =>
-    token.mint === devnetUsdcMint && !token.logo
-      ? { ...token, logo: mainnetLogo }
-      : token,
-  );
+  if (logoByMint.size === 0) return tokens;
+  return tokens.map((token) => {
+    const logo = !token.logo ? logoByMint.get(token.mint) : undefined;
+    return logo ? { ...token, logo } : token;
+  });
 }

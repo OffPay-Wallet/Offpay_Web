@@ -86,14 +86,14 @@ export function WalletBalanceSummary({
             <span className="text-xs font-medium uppercase text-muted-foreground">
               Shielded (private)
             </span>
-            <Badge tone="neutral">Coming soon</Badge>
+            <Badge tone="success">Encrypted</Badge>
           </div>
           <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-muted-foreground">
             <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-            Private balance
+            Encrypted holdings
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Umbra shielded pools are not enabled yet
+            Synced through the Umbra vault
           </p>
         </div>
       </div>

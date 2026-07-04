@@ -13,6 +13,7 @@ import { PublicAssetsCard } from "@/components/dashboard/public-assets-card";
 import { ShieldedAssetsCard } from "@/components/dashboard/shielded-assets-card";
 import { WalletDashboardHeader } from "@/components/dashboard/wallet-dashboard-header";
 import { BentoGrid } from "@/components/ui/bento-grid";
+import { useGatewaySignIn } from "@/hooks/use-gateway-session";
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
 import { getErrorMessage } from "@/lib/offpay/display";
 import { debugLog, debugWarn, redactIdentifier } from "@/lib/offpay/debug";
@@ -32,19 +33,9 @@ type SessionReadState = "idle" | "loading" | "ready" | "missing" | "error";
 
 export function WalletDashboard() {
   const {
-    activeWalletAddress,
-    authenticated,
-    connectedWalletAddresses,
-    embeddedWalletCount,
-    externalWalletCount,
-    preferredWalletCustody,
-    privyUserId,
-    privyReady,
-    signerReady,
-    walletAddress,
-    walletCount,
-    walletCustody,
-    walletsReady,
+    activeWallet, activeWalletAddress, authenticated, connectedWalletAddresses,
+    embeddedWalletCount, externalWalletCount, preferredWalletCustody, privyUserId,
+    privyReady, signerReady, walletAddress, walletCount, walletCustody, walletsReady,
   } = useSolanaWalletAccount();
   const [session, setSession] = useState<WebSession | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
@@ -63,6 +54,20 @@ export function WalletDashboard() {
       session.identity.custody === walletCustody,
   );
 
+  const { signIn, signing, error: signInError } = useGatewaySignIn({
+    gatewayOrigin,
+    cluster,
+    walletAddress,
+    walletCustody,
+    activeWallet,
+    onSession: (verification) => {
+      setSession(verification.session);
+      setSessionToken(verification.sessionToken);
+      setSessionReadState("ready");
+      setSessionSyncError(null);
+    },
+  });
+
   const balancesQuery = useQuery({
     queryKey: [
       "wallet-balances",
@@ -74,28 +79,23 @@ export function WalletDashboard() {
     enabled: Boolean(gatewayOrigin && walletAddress),
     queryFn: async () => {
       const targetWalletAddress = walletAddress;
-
       if (!gatewayOrigin) {
         throw new Error("Gateway origin is not configured.");
       }
-
       if (!targetWalletAddress) {
         throw new Error("Wallet address is not available.");
       }
-
       debugLog("balances.query.start", {
         cluster,
         signedSession: sessionReady,
         walletAddress: redactIdentifier(targetWalletAddress),
       });
-
       const envelope = sessionReady
         ? await readGatewayBalances(gatewayOrigin, sessionToken ?? undefined)
         : await readGatewayPublicBalances(gatewayOrigin, {
             walletAddress: targetWalletAddress,
             network: cluster,
           });
-
       if (!envelope.ok) {
         debugWarn("balances.query.failed", {
           cluster,
@@ -106,7 +106,6 @@ export function WalletDashboard() {
         });
         throw new Error(envelope.error.message);
       }
-
       debugLog("balances.query.success", {
         cluster: envelope.data.cluster,
         fetchedAt: envelope.data.fetchedAt,
@@ -120,7 +119,6 @@ export function WalletDashboard() {
         tokenCount: envelope.data.tokens.length,
         walletAddress: redactIdentifier(envelope.data.address),
       });
-
       return envelope.data;
     },
   });
@@ -240,27 +238,22 @@ export function WalletDashboard() {
       });
       return;
     }
-
     let mounted = true;
     const statusSessionToken = sessionToken;
-
     debugLog("session.status.start", {
       custody: walletCustody,
       walletAddress: redactIdentifier(walletAddress),
     });
-
     void Promise.resolve().then(() => {
       if (mounted) {
         setSessionReadState("loading");
       }
     });
-
     void readGatewaySessionStatus(gatewayOrigin, sessionToken ?? undefined)
       .then((envelope) => {
         if (!mounted) {
           return;
         }
-
         if (
           envelope.ok &&
           envelope.data?.identity.address === walletAddress &&
@@ -277,9 +270,7 @@ export function WalletDashboard() {
           setSessionSyncError(null);
           return;
         }
-
         const logSessionStatus = envelope.ok ? debugLog : debugWarn;
-
         logSessionStatus("session.status.missing_or_mismatch", {
           ok: envelope.ok,
           requestId: envelope.requestId,
@@ -312,7 +303,6 @@ export function WalletDashboard() {
         if (!mounted) {
           return;
         }
-
         debugWarn("session.status.error", {
           walletAddress: redactIdentifier(walletAddress),
           error: getErrorMessage(error),
@@ -334,7 +324,6 @@ export function WalletDashboard() {
           current === "ready" ? current : "missing",
         );
       });
-
     return () => {
       mounted = false;
     };
@@ -368,7 +357,16 @@ export function WalletDashboard() {
             walletAddress={walletAddress}
           />
         ) : (
-          <ShieldedAssetsCard />
+          <ShieldedAssetsCard
+            gatewayOrigin={gatewayOrigin}
+            onSignSession={signIn}
+            sessionId={sessionReady ? session?.id : null}
+            sessionToken={sessionReady ? sessionToken : null}
+            signSessionError={signInError}
+            signingSession={signing}
+            walletAddress={walletAddress}
+            walletCustody={walletCustody}
+          />
         )}
       </BentoGrid>
 

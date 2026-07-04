@@ -80,6 +80,20 @@ export function formatTransactionAmount(entry: WalletTransactionSignature): stri
   return preferredAsset ? (formatSignedAssetAmount(preferredAsset) ?? "--") : "--";
 }
 
+export function primaryTransactionAsset(
+  entry: WalletTransactionSignature,
+): TransactionAsset | null {
+  const assets = entry.assets ?? (entry.asset ? [entry.asset] : []);
+  if (assets.length === 0) return null;
+  const magnitude = (asset: TransactionAsset) => {
+    const value = normalizedAssetDelta(asset);
+    return value == null ? 0 : Math.abs(value);
+  };
+  const changed = assets.filter((asset) => magnitude(asset) > 0);
+  const pool = changed.length > 0 ? changed : assets;
+  return pool.reduce((best, asset) => (magnitude(asset) > magnitude(best) ? asset : best), pool[0]!);
+}
+
 export function amountToneClass(entry: WalletTransactionSignature): string {
   if (entry.summary?.tone === "positive") return "text-gain";
   if (entry.summary?.tone === "negative") return "text-loss";

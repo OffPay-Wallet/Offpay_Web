@@ -43,6 +43,11 @@ import {
   verifyChallenge,
 } from "./session";
 import type { GatewayBindings, GatewayEnv } from "./types";
+import { readUmbraGatewayStatus } from "./umbra-status";
+import {
+  readUmbraVaultHoldings,
+  UmbraVaultGatewayError,
+} from "./umbra-vault";
 
 const sessionCookieName = "offpay_web_session";
 const allowedMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
@@ -567,6 +572,56 @@ app.get("/web/wallet/balance", requireSession, async (c) => {
     cluster: session.identity.cluster,
     label: "wallet_balance",
   });
+});
+
+app.get("/web/umbra/status", requireSession, (c) => {
+  const session = c.get("session");
+  const status = readUmbraGatewayStatus(c.env, session.identity.cluster);
+
+  gatewayDebugLog(c, "umbra.status", {
+    configured: status.configured,
+    network: status.network,
+    supported: status.supported,
+  });
+
+  return ok(c, status);
+});
+
+app.get("/web/umbra/holdings", requireSession, async (c) => {
+  const session = c.get("session");
+
+  try {
+    const holdings = await readUmbraVaultHoldings({
+      env: c.env,
+      identity: session.identity,
+    });
+
+    gatewayDebugLog(c, "umbra.holdings.success", {
+      network: holdings.network,
+      supportedMintCount: holdings.supportedMintCount,
+    });
+
+    return ok(c, holdings);
+  } catch (error) {
+    if (error instanceof UmbraVaultGatewayError) {
+      gatewayWarnLog(c, "umbra.holdings.error", {
+        code: error.code,
+        status: error.status,
+      });
+
+      return fail(c, error.status, {
+        code: error.code,
+        message: error.message,
+        ...(error.details ? { details: error.details } : {}),
+      });
+    }
+
+    gatewayWarnLog(c, "umbra.holdings.unknown_error");
+    return fail(c, 502, {
+      code: "umbra_holdings_unavailable",
+      message: "Unable to sync Umbra vault holdings.",
+    });
+  }
 });
 
 function marketErrorResponse(c: Context<GatewayBindings>, error: unknown): Response {

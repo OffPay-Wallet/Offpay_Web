@@ -1,17 +1,31 @@
 "use client";
 
+import { useConnectWallet } from "@privy-io/react-auth";
 import { Check, Copy, Unplug } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
 import { useWalletDisconnect } from "@/hooks/use-wallet-disconnect";
+import { debugLog, debugWarn, redactIdentifier } from "@/lib/offpay/debug";
 import { truncateAddress } from "@/lib/offpay/display";
 import { cn } from "@/lib/utils";
 
 type CopyStatus = "idle" | "copied" | "failed";
 
 export function WalletAccountControl() {
-  const { privyReady, walletAddress } = useSolanaWalletAccount();
+  const { privyReady, walletAddress, walletsReady } = useSolanaWalletAccount();
+  const { connectWallet } = useConnectWallet({
+    onError: (error) => {
+      debugWarn("wallet.connect.failed", {
+        error: String(error),
+      });
+    },
+    onSuccess: ({ wallet }) => {
+      debugLog("wallet.connect.success", {
+        walletAddress: redactIdentifier(wallet.address),
+      });
+    },
+  });
   const { disconnectAccount, disconnectError, disconnecting } = useWalletDisconnect();
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,11 +64,28 @@ export function WalletAccountControl() {
     return null;
   }
 
-  if (!walletAddress) {
+  if (!walletAddress && !walletsReady) {
     return (
       <div className="flex h-10 items-center rounded-md border border-border bg-background px-3 font-sans text-xs font-semibold text-muted-foreground">
         Preparing wallet
       </div>
+    );
+  }
+
+  if (!walletAddress) {
+    return (
+      <button
+        type="button"
+        onClick={() => connectWallet()}
+        className={cn(
+          "flex h-10 items-center rounded-md border border-border bg-background px-3",
+          "font-sans text-xs font-semibold text-muted-foreground transition-colors",
+          "hover:bg-secondary hover:text-foreground focus-visible:outline-none",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        )}
+      >
+        Connect wallet
+      </button>
     );
   }
 

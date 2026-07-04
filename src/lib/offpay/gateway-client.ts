@@ -7,6 +7,8 @@ import type {
   SolanaCluster,
   SwapTokenListResponse,
   TokenMetadataResponse,
+  UmbraGatewayStatus,
+  UmbraVaultHoldings,
   WalletPortfolio,
   WalletTransactionsResponse,
   WebApiEnvelope,
@@ -122,6 +124,50 @@ export async function readGatewayBalances(
     gatewayOrigin,
     label: "wallet.balances",
     path: "/web/balances",
+    init: {
+      method: "GET",
+      credentials: "include",
+      headers,
+    },
+  });
+}
+
+export async function readGatewayUmbraStatus(
+  gatewayOrigin: string,
+  sessionToken?: string,
+): Promise<WebApiEnvelope<UmbraGatewayStatus>> {
+  const headers = new Headers();
+
+  if (sessionToken) {
+    headers.set("authorization", `Bearer ${sessionToken}`);
+  }
+
+  return requestGateway<UmbraGatewayStatus>({
+    gatewayOrigin,
+    label: "umbra.status",
+    path: "/web/umbra/status",
+    init: {
+      method: "GET",
+      credentials: "include",
+      headers,
+    },
+  });
+}
+
+export async function readGatewayUmbraVaultHoldings(
+  gatewayOrigin: string,
+  sessionToken?: string,
+): Promise<WebApiEnvelope<UmbraVaultHoldings>> {
+  const headers = new Headers();
+
+  if (sessionToken) {
+    headers.set("authorization", `Bearer ${sessionToken}`);
+  }
+
+  return requestGateway<UmbraVaultHoldings>({
+    gatewayOrigin,
+    label: "umbra.holdings",
+    path: "/web/umbra/holdings",
     init: {
       method: "GET",
       credentials: "include",

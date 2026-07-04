@@ -1,7 +1,7 @@
 import { ArrowRightLeft, ArrowUpRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function WalletActionLinks() {
@@ -15,10 +15,10 @@ export function WalletActionLinks() {
         <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
         Swap
       </Link>
-      <Button variant="ghost" size="sm" disabled title="Shielding is not enabled yet">
+      <Link href="/vault" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
         <ShieldCheck className="h-4 w-4" aria-hidden="true" />
         Shield
-      </Button>
+      </Link>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { AssetAvatar } from "@/components/dashboard/asset-avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   formatFiatValue,
   formatPercentValue,
@@ -75,10 +75,10 @@ export function AssetRow({
           <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           Send
         </Link>
-        <Button variant="ghost" size="sm" disabled title="Shielding is not enabled yet">
+        <Link href="/vault" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />
           Shield
-        </Button>
+        </Link>
       </div>
     </div>
   );

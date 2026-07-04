@@ -16,6 +16,7 @@ import {
   isPrivyEmbeddedSolanaWallet,
   walletCustodyForWallet,
 } from "@/lib/offpay/solana-wallets";
+import { selectSolanaWalletCandidates } from "@/lib/offpay/solana-wallet-selection";
 
 function redactAddresses(addresses: string[]): string[] {
   return addresses.map((address) => redactIdentifier(address) ?? "[empty]");
@@ -71,10 +72,30 @@ export function useSolanaWalletAccount() {
     () => embeddedWallets.filter((wallet) => linkedEmbeddedWalletAddresses.has(wallet.address)),
     [embeddedWallets, linkedEmbeddedWalletAddresses],
   );
-  const currentUserWallets = useMemo(
-    () => [...currentUserExternalWallets, ...currentUserEmbeddedWallets],
-    [currentUserEmbeddedWallets, currentUserExternalWallets],
+  const preferredWalletCustody = useMemo(
+    () => preferredWalletCustodyForUser(walletOwner),
+    [walletOwner],
   );
+  const walletSelection = useMemo(
+    () =>
+      selectSolanaWalletCandidates({
+        embeddedWallets,
+        externalWallets,
+        linkedEmbeddedWalletAddresses: linkedEmbeddedWalletAddressList,
+        linkedExternalWalletAddresses: linkedExternalWalletAddressList,
+        preferredWalletCustody,
+      }),
+    [
+      embeddedWallets,
+      externalWallets,
+      linkedEmbeddedWalletAddressList,
+      linkedExternalWalletAddressList,
+      preferredWalletCustody,
+    ],
+  );
+  const visibleExternalWallets = walletSelection.externalWallets;
+  const visibleEmbeddedWallets = walletSelection.embeddedWallets;
+  const visibleWallets = walletSelection.wallets;
   const currentUserExternalWalletAddresses = useMemo(
     () => currentUserExternalWallets.map((wallet) => wallet.address),
     [currentUserExternalWallets],
@@ -91,21 +112,17 @@ export function useSolanaWalletAccount() {
     () => rawEmbeddedWalletAddresses.filter((address) => !linkedEmbeddedWalletAddresses.has(address)),
     [linkedEmbeddedWalletAddresses, rawEmbeddedWalletAddresses],
   );
-  const preferredWalletCustody = useMemo(
-    () => preferredWalletCustodyForUser(walletOwner),
-    [walletOwner],
+  const visibleExternalWalletAddresses = useMemo(
+    () => visibleExternalWallets.map((wallet) => wallet.address),
+    [visibleExternalWallets],
   );
-  const activeWallet = useMemo<ConnectedStandardSolanaWallet | undefined>(() => {
-    if (preferredWalletCustody === "external-solana") {
-      return currentUserExternalWallets[0];
-    }
-
-    if (preferredWalletCustody === "privy-solana") {
-      return currentUserEmbeddedWallets[0];
-    }
-
-    return undefined;
-  }, [currentUserEmbeddedWallets, currentUserExternalWallets, preferredWalletCustody]);
+  const visibleEmbeddedWalletAddresses = useMemo(
+    () => visibleEmbeddedWallets.map((wallet) => wallet.address),
+    [visibleEmbeddedWallets],
+  );
+  const activeWallet = walletSelection.activeWallet as
+    | ConnectedStandardSolanaWallet
+    | undefined;
   const walletAddress = activeWallet?.address;
   const walletCustody = walletCustodyForWallet(activeWallet);
 
@@ -127,6 +144,9 @@ export function useSolanaWalletAccount() {
       rawExternalWalletAddresses: redactAddresses(rawExternalWalletAddresses),
       rejectedEmbeddedWalletAddresses: redactAddresses(rejectedEmbeddedWalletAddresses),
       rejectedExternalWalletAddresses: redactAddresses(rejectedExternalWalletAddresses),
+      activeWalletSource: walletSelection.activeWalletSource,
+      visibleEmbeddedWalletAddresses: redactAddresses(visibleEmbeddedWalletAddresses),
+      visibleExternalWalletAddresses: redactAddresses(visibleExternalWalletAddresses),
       walletCustody,
       walletsReady,
     });
@@ -146,6 +166,9 @@ export function useSolanaWalletAccount() {
     rawExternalWalletAddresses,
     rejectedEmbeddedWalletAddresses,
     rejectedExternalWalletAddresses,
+    visibleEmbeddedWalletAddresses,
+    visibleExternalWalletAddresses,
+    walletSelection.activeWalletSource,
     walletAddress,
     walletCustody,
     walletsReady,
@@ -155,19 +178,19 @@ export function useSolanaWalletAccount() {
     authenticated,
     activeWallet,
     activeWalletAddress: walletAddress,
-    connectedWalletAddresses: currentUserWallets.map((wallet) => wallet.address).join(","),
-    embeddedWalletCount: currentUserEmbeddedWallets.length,
-    embeddedWallets: currentUserEmbeddedWallets,
-    externalWalletCount: currentUserExternalWallets.length,
-    externalWallets: currentUserExternalWallets,
+    connectedWalletAddresses: visibleWallets.map((wallet) => wallet.address).join(","),
+    embeddedWalletCount: visibleEmbeddedWallets.length,
+    embeddedWallets: visibleEmbeddedWallets,
+    externalWalletCount: visibleExternalWallets.length,
+    externalWallets: visibleExternalWallets,
     preferredWalletCustody,
     privyUserId,
     privyReady,
     signerReady: Boolean(activeWallet),
     walletAddress,
-    walletCount: currentUserWallets.length,
+    walletCount: visibleWallets.length,
     walletCustody,
-    wallets: currentUserWallets,
+    wallets: visibleWallets,
     walletsReady,
   };
 }

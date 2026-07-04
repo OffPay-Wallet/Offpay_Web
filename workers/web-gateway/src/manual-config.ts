@@ -93,6 +93,7 @@ const configGroups = [
     description: "Offpay supported token mint addresses",
     allOf: [
       "OFFPAY_DEVNET_USDC_MINT",
+      "OFFPAY_DEVNET_USDT_MINT",
       "OFFPAY_MAINNET_USDC_MINT",
       "OFFPAY_MAINNET_USDT_MINT",
     ],
@@ -443,6 +444,22 @@ export const manualWorkflowRoutes = [
     implemented: true,
     public: true,
     configGroups: ["alchemy-price"],
+  },
+  {
+    method: "GET",
+    path: "/web/umbra/status",
+    capability: "umbra-status",
+    implemented: true,
+    public: false,
+    configGroups: ["session", "umbra-devnet", "umbra-mainnet", "umbra-runtime"],
+  },
+  {
+    method: "GET",
+    path: "/web/umbra/holdings",
+    capability: "umbra-holdings",
+    implemented: true,
+    public: false,
+    configGroups: ["session", "umbra-devnet", "umbra-mainnet", "umbra-runtime"],
   },
   {
     method: "GET",

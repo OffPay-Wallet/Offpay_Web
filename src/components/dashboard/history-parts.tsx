@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock3, ReceiptText, XCircle } from "lucide-react";
 
 import { AssetAvatar } from "@/components/dashboard/asset-avatar";
+import { primaryTransactionAsset } from "@/components/dashboard/history-format";
 import type { WalletTransactionSignature } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
 
@@ -47,17 +48,14 @@ export function HistoryStatusBadge({ entry }: { entry: WalletTransactionSignatur
 }
 
 export function HistoryEntryIcon({ entry }: { entry: WalletTransactionSignature }) {
-  const logoAsset =
-    entry.assets?.find((asset) => asset.logo) ?? (entry.asset?.logo ? entry.asset : null);
+  const asset = primaryTransactionAsset(entry);
 
-  if (logoAsset?.logo) {
-    const symbol = logoAsset.symbol;
-
+  if (asset) {
     return (
       <AssetAvatar
-        logo={logoAsset.logo}
-        name={logoAsset.name ?? logoAsset.symbol ?? logoAsset.mint}
-        {...(symbol ? { symbol } : {})}
+        logo={asset.logo ?? null}
+        name={asset.name ?? asset.symbol ?? asset.mint}
+        {...(asset.symbol ? { symbol: asset.symbol } : {})}
       />
     );
   }

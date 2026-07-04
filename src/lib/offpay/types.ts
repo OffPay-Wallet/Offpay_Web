@@ -1,5 +1,6 @@
 export type SolanaCluster = "solana:devnet" | "solana:testnet" | "solana:mainnet";
 export type WebWalletCustody = "external-solana" | "privy-solana";
+export type UmbraNetwork = "devnet" | "mainnet";
 
 export type OffpayFeature =
   | "home"
@@ -113,6 +114,44 @@ export type WalletTransactionsResponse = {
   cluster: SolanaCluster;
   fetchedAt: string;
   signatures: WalletTransactionSignature[];
+};
+
+export type UmbraGatewayStatus = {
+  cluster: SolanaCluster;
+  configured: boolean;
+  missing: string[];
+  network: UmbraNetwork | null;
+  services: {
+    indexer: boolean;
+    relayer: boolean;
+    runtime: boolean;
+  };
+  supported: boolean;
+};
+
+export type UmbraVaultHolding = {
+  balanceLabel: string;
+  balanceState: "encrypted";
+  decimals: number | null;
+  depositEnabled: boolean;
+  encrypted: true;
+  mint: string;
+  name: string;
+  stealthPoolEnabled: boolean;
+  symbol: string;
+  tokenProgram: "spl" | "token-2022";
+  uiAmountString: string | null;
+};
+
+export type UmbraVaultHoldings = {
+  activeStealthPoolIndices: string[];
+  address: string;
+  cluster: Exclude<SolanaCluster, "solana:testnet">;
+  fetchedAt: string;
+  holdings: UmbraVaultHolding[];
+  network: UmbraNetwork;
+  relayerAddress: string | null;
+  supportedMintCount: number;
 };
 
 export type ReadWalletTransactionsInput = {

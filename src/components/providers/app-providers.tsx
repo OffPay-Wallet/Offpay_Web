@@ -4,16 +4,21 @@ import {
   PrivyProvider,
   createWalletCreationOnLoginPlugin,
   type PrivyClientConfig,
+  usePrivy,
 } from "@privy-io/react-auth";
-import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+import {
+  toSolanaWalletConnectors,
+  useCreateWallet,
+  useWallets,
+} from "@privy-io/react-auth/solana";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Image from "next/image";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster } from "sonner";
 
 import { AuthGate } from "@/components/auth/auth-gate";
 import { clearPrivyAuthSessionStateForOAuthCallback } from "@/lib/offpay/browser-session-cleanup";
-import { debugLog, redactIdentifier } from "@/lib/offpay/debug";
+import { debugLog, debugWarn, redactIdentifier } from "@/lib/offpay/debug";
 import {
   getPrivyAppId,
   getPrivyClientId,
@@ -21,6 +26,7 @@ import {
   offpayPrivyLogoPath,
 } from "@/lib/offpay/public-config";
 import { shouldCreateSolanaEmbeddedWalletOnLogin } from "@/lib/offpay/privy-wallet-policy";
+import { isPrivyEmbeddedSolanaWallet } from "@/lib/offpay/solana-wallets";
 
 const privyLoginMethods = [
   "email",
@@ -78,6 +84,53 @@ function buildPrivyConfig(): PrivyClientConfig {
       showWalletUIs: false,
     },
   };
+}
+
+function SolanaWalletBootstrap({ children }: { children: ReactNode }) {
+  const { authenticated, ready: privyReady, user } = usePrivy();
+  const { createWallet } = useCreateWallet();
+  const { ready: walletsReady, wallets } = useWallets();
+  const creationAttemptUserRef = useRef<string | null>(null);
+  const hasEmbeddedSolanaWallet = wallets.some(isPrivyEmbeddedSolanaWallet);
+  const shouldCreateEmbeddedWallet = Boolean(
+    authenticated &&
+      privyReady &&
+      walletsReady &&
+      user &&
+      wallets.length === 0 &&
+      !hasEmbeddedSolanaWallet &&
+      shouldCreateSolanaEmbeddedWalletOnLogin({ user }),
+  );
+
+  useEffect(() => {
+    if (!shouldCreateEmbeddedWallet || !user) {
+      return;
+    }
+
+    if (creationAttemptUserRef.current === user.id) {
+      return;
+    }
+
+    creationAttemptUserRef.current = user.id;
+    debugLog("wallet.embedded_create.start", {
+      privyUserId: redactIdentifier(user.id),
+    });
+
+    void createWallet()
+      .then(({ wallet }) => {
+        debugLog("wallet.embedded_create.success", {
+          walletAddress: redactIdentifier(wallet.address),
+        });
+      })
+      .catch((error: unknown) => {
+        debugWarn("wallet.embedded_create.failed", {
+          error: error instanceof Error ? error.message : String(error),
+          privyUserId: redactIdentifier(user.id),
+        });
+      });
+  }, [createWallet, shouldCreateEmbeddedWallet, user]);
+
+  return <>{children}</>;
 }
 
 function PrivySetupRequired() {
@@ -139,7 +192,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
       {...(privyClientId ? { clientId: privyClientId } : {})}
       config={privyConfig}
     >
-      <AuthGate>{children}</AuthGate>
+      <AuthGate>
+        <SolanaWalletBootstrap>{children}</SolanaWalletBootstrap>
+      </AuthGate>
     </PrivyProvider>
   ) : (
     <PrivySetupRequired />
