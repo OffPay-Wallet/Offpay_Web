@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import app from "../../../workers/web-gateway/src/index";
 import {
   isAllowedOrigin,
   isLocalDevelopmentOrigin,
@@ -60,5 +61,27 @@ describe("gateway CORS helpers", () => {
         "http://localhost:3000",
       ),
     ).toBe(false);
+  });
+
+  it("allows Solana SDK headers on gateway RPC preflights", async () => {
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/rpc/devnet", {
+        headers: {
+          "access-control-request-headers": "solana-client,content-type",
+          "access-control-request-method": "POST",
+          origin: "http://localhost:3000",
+        },
+        method: "OPTIONS",
+      }),
+      {},
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:3000",
+    );
+    expect(response.headers.get("access-control-allow-headers")).toContain(
+      "solana-client",
+    );
   });
 });

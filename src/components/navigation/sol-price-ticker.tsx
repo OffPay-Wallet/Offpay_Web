@@ -77,9 +77,13 @@ export function SolPriceTicker() {
   const logoSrc = httpsImageUrl(logoQuery.data ?? null);
 
   return (
-    <div className="flex shrink-0 items-center gap-2" title="Live SOL price" aria-live="polite">
+    <div
+      className="flex shrink-0 items-center gap-1.5 sm:gap-2"
+      title="Live SOL price"
+      aria-live="polite"
+    >
       {logoSrc ? <SolLogo src={logoSrc} /> : null}
-      <span className="font-mono text-sm font-semibold leading-none tabular-nums text-foreground">
+      <span className="font-mono text-xs font-semibold leading-none tabular-nums text-foreground sm:text-sm">
         {priceLabel}
       </span>
     </div>
@@ -97,7 +101,7 @@ function SolLogo({ src }: { src: string }) {
       alt=""
       width={24}
       height={24}
-      className="h-6 w-6 shrink-0 rounded-full object-cover"
+      className="h-5 w-5 shrink-0 rounded-full object-cover sm:h-6 sm:w-6"
       loader={passthroughImageLoader}
       unoptimized
       referrerPolicy="no-referrer"

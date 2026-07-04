@@ -197,6 +197,163 @@ describe("gateway Umbra holdings route", () => {
   });
 });
 
+describe("gateway SDK proxy routes", () => {
+  it("passes allowlisted Solana JSON-RPC requests through configured worker RPC", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        id: "umbra-rpc",
+        jsonrpc: "2.0",
+        result: { context: { slot: 1 }, value: 2 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/rpc/devnet", {
+        body: JSON.stringify({
+          id: "umbra-rpc",
+          jsonrpc: "2.0",
+          method: "getBalance",
+          params: ["11111111111111111111111111111111"],
+        }),
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        method: "POST",
+      }),
+      {
+        HELIUS_DEVNET_RPC_URL: "https://rpc.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      result: { value: 2 },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://rpc.example.invalid");
+  });
+
+  it("blocks non-allowlisted Solana JSON-RPC methods", async () => {
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/rpc/devnet", {
+        body: JSON.stringify({
+          id: "bad-rpc",
+          jsonrpc: "2.0",
+          method: "getBlock",
+          params: [1],
+        }),
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        method: "POST",
+      }),
+      {
+        HELIUS_DEVNET_RPC_URL: "https://rpc.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: -32000,
+      },
+      jsonrpc: "2.0",
+    });
+  });
+
+  it("passes Umbra relayer SDK requests through the configured relayer", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        address: "Relayer111111111111111111111111111111111",
+        supported_mints: ["So11111111111111111111111111111111111111112"],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/umbra/relayer/devnet/v1/relayer/info", {
+        headers: {
+          origin: "http://localhost:3000",
+        },
+      }),
+      {
+        UMBRA_RELAYER_URL_DEVNET: "https://relayer.devnet.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      address: "Relayer111111111111111111111111111111111",
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://relayer.devnet.example.invalid/v1/relayer/info",
+    );
+  });
+
+  it("passes Umbra indexer SDK proof requests through the configured indexer", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        proofs: [],
+        root: "root",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/umbra/indexer/devnet/v1/trees/1/proofs", {
+        body: JSON.stringify({ insertion_indices: [1, 2] }),
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        method: "POST",
+      }),
+      {
+        UMBRA_INDEXER_URL_DEVNET: "https://indexer.devnet.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      proofs: [],
+      root: "root",
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://indexer.devnet.example.invalid/v1/trees/1/proofs",
+    );
+  });
+
+  it("requests the Umbra indexer columnar UTXO layout used by the SDK", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ columns: null, has_more: false, next_cursor: null, total_count: 0 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await app.fetch(
+      new Request("https://gateway.example.invalid/web/umbra/indexer/devnet/v1/utxos", {
+        headers: {
+          origin: "http://localhost:3000",
+        },
+      }),
+      {
+        UMBRA_INDEXER_URL_DEVNET: "https://indexer.devnet.example.invalid",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      has_more: false,
+      total_count: 0,
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://indexer.devnet.example.invalid/v1/utxos");
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      "x-response-layout": "columnar",
+    });
+  });
+});
+
 describe("gateway manual workflow config route", () => {
   it("reports configured route and env groups without exposing values", async () => {
     const response = await app.fetch(

@@ -35,6 +35,7 @@ import {
 } from "./observability";
 import { fetchWalletPortfolioFromRpc, RpcBalanceError } from "./rpc-balance";
 import { fetchWalletSignaturesFromRpc } from "./rpc-transactions";
+import { registerSdkProxyRoutes } from "./sdk-proxy-routes";
 import { fetchTokenDisplayMetadataForCluster } from "./token-metadata";
 import {
   createChallenge,
@@ -52,7 +53,7 @@ import {
 const sessionCookieName = "offpay_web_session";
 const allowedMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
 const allowedHeaders =
-  "accept,authorization,content-type,x-offpay-request-id,x-requested-with";
+  "accept,authorization,content-type,solana-client,x-offpay-request-id,x-requested-with,x-response-layout";
 const exposedHeaders =
   "server-timing,x-offpay-request-id,x-ratelimit-limit,x-ratelimit-remaining,x-ratelimit-reset";
 
@@ -577,6 +578,8 @@ app.get("/web/wallet/balance", requireSession, async (c) => {
     label: "wallet_balance",
   });
 });
+
+registerSdkProxyRoutes(app);
 
 app.get("/web/umbra/status", zValidator("query", umbraPublicSchema), (c) => {
   const input = c.req.valid("query");

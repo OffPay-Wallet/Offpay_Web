@@ -15,10 +15,10 @@ export type VaultValidationResult =
       retryBalances?: true;
     };
 
-const umbraActionMinSolLamports = 5_000n;
+const umbraActionMinSolLamports = 20_000_000n;
 const nativeSolMint = "So11111111111111111111111111111111111111112";
 
-function decimalToAtomic(value: string, decimals: number): bigint | null {
+export function decimalToAtomic(value: string, decimals: number): bigint | null {
   const trimmed = value.trim();
 
   if (!/^\d+(?:\.\d*)?$/.test(trimmed)) return null;
@@ -38,7 +38,7 @@ function decimalToAtomic(value: string, decimals: number): bigint | null {
   }
 }
 
-function readAtomicAmount(value: string | undefined): bigint | null {
+export function readAtomicAmount(value: string | undefined): bigint | null {
   if (!value) return null;
 
   try {
@@ -48,7 +48,7 @@ function readAtomicAmount(value: string | undefined): bigint | null {
   }
 }
 
-function formatAtomicAmount(value: bigint, decimals: number): string {
+export function formatAtomicAmount(value: bigint, decimals: number): string {
   if (decimals <= 0) return value.toString();
 
   const scale = 10n ** BigInt(decimals);
@@ -92,7 +92,10 @@ function solFundingError(portfolio: WalletPortfolio): string | null {
   if (lamports == null) return "Unable to verify SOL fee balance.";
   if (lamports >= umbraActionMinSolLamports) return null;
 
-  return `Need at least ${formatAtomicAmount(umbraActionMinSolLamports, 9)} SOL for network fees.`;
+  return `Need at least ${formatAtomicAmount(
+    umbraActionMinSolLamports,
+    9,
+  )} SOL for Umbra setup and network fees.`;
 }
 
 function nativeSolSpendableAmount(portfolio: WalletPortfolio): bigint | null {
@@ -209,11 +212,8 @@ function validateUnshieldPreflight({
     return { ok: false, message: "Token decimals are unavailable. Refresh vault." };
   }
   if (holding.uiAmountString == null) {
-    return {
-      ok: false,
-      message: `Encrypted ${holding.symbol} balance is not readable yet.`,
-      retryBalances: true,
-    };
+    const feeMessage = solFundingError(portfolio);
+    return feeMessage ? { ok: false, message: feeMessage } : { ok: true };
   }
 
   const shieldedAmount = decimalToAtomic(holding.uiAmountString, holding.decimals);
@@ -252,7 +252,7 @@ export function umbraVaultBalanceHint({
 
   if (action === "unshield") {
     return holding.uiAmountString == null
-      ? "Encrypted balance unavailable"
+      ? "Encrypted balance checks on confirm"
       : `Shielded: ${holding.uiAmountString} ${holding.symbol}`;
   }
 

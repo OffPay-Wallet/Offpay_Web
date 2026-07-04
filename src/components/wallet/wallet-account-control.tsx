@@ -66,7 +66,7 @@ export function WalletAccountControl() {
 
   if (!walletAddress && !walletsReady) {
     return (
-      <div className="flex h-10 items-center rounded-md border border-border bg-background px-3 font-sans text-xs font-semibold text-muted-foreground">
+      <div className="flex h-9 items-center rounded-md border border-border bg-background px-3 font-sans text-xs font-semibold text-muted-foreground sm:h-10">
         Preparing wallet
       </div>
     );
@@ -78,7 +78,7 @@ export function WalletAccountControl() {
         type="button"
         onClick={() => connectWallet()}
         className={cn(
-          "flex h-10 items-center rounded-md border border-border bg-background px-3",
+          "flex h-9 items-center rounded-md border border-border bg-background px-3 sm:h-10",
           "font-sans text-xs font-semibold text-muted-foreground transition-colors",
           "hover:bg-secondary hover:text-foreground focus-visible:outline-none",
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
@@ -101,7 +101,7 @@ export function WalletAccountControl() {
   return (
     <div className="min-w-0">
       <div
-        className="inline-flex max-w-full items-center gap-1.5 font-sans text-sm font-bold text-foreground"
+        className="inline-flex max-w-full items-center gap-1 font-sans text-xs font-bold text-foreground sm:gap-1.5 sm:text-sm"
         aria-label="Wallet account"
       >
         <span className="min-w-0 truncate px-1 font-sans tabular-nums">
@@ -111,7 +111,7 @@ export function WalletAccountControl() {
           type="button"
           onClick={copyAddress}
           className={cn(
-            "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground",
+            "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground sm:h-9 sm:w-9",
             "transition-colors duration-150 hover:bg-secondary/60 hover:text-foreground focus-visible:outline-none",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             copyStatus === "copied" && "text-success",
@@ -125,7 +125,7 @@ export function WalletAccountControl() {
           onClick={() => void disconnectAccount()}
           disabled={disconnecting}
           className={cn(
-            "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-destructive",
+            "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-destructive sm:h-9 sm:w-9",
             "transition-colors duration-150 hover:bg-destructive/15",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",

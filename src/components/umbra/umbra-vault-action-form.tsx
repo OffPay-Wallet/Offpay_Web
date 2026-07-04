@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useMemo, useState } from "react";
+import type { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
 import {
   AlertCircle,
   ArrowDownLeft,
@@ -9,10 +10,20 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { UmbraVaultHolding, WalletPortfolio } from "@/lib/offpay/types";
+import {
+  executeUmbraVaultAction,
+  umbraVaultExecutionMessage,
+} from "@/lib/offpay/umbra-vault-execution";
+import type {
+  SolanaCluster,
+  UmbraVaultHolding,
+  WalletPortfolio,
+} from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
 
+import { UmbraRegistrationSetup } from "./umbra-registration-setup";
 import {
+  decimalToAtomic,
   type VaultAction,
   umbraVaultBalanceHint,
   validateUmbraVaultPreflight,
@@ -21,9 +32,13 @@ import {
 type FeedbackTone = "danger" | "warning" | "success";
 
 type VaultActionFormProps = {
+  activeWallet: ConnectedStandardSolanaWallet | undefined;
+  cluster: SolanaCluster;
   compact: boolean;
+  gatewayOrigin: string | undefined;
   holdings: UmbraVaultHolding[];
   isLoading: boolean;
+  onActionComplete: () => void;
   onPortfolioRetry: () => void;
   portfolio: WalletPortfolio | undefined;
   portfolioError: Error | null;
@@ -37,9 +52,13 @@ const vaultActions = [
 ] as const;
 
 export function VaultActionForm({
+  activeWallet,
+  cluster,
   compact,
+  gatewayOrigin,
   holdings,
   isLoading,
+  onActionComplete,
   onPortfolioRetry,
   portfolio,
   portfolioError,
@@ -55,6 +74,10 @@ export function VaultActionForm({
     retryBalances?: true;
     tone: FeedbackTone;
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [readyVaultKey, setReadyVaultKey] = useState<string | null>(null);
+  const vaultSetupKey = `${cluster}:${gatewayOrigin ?? ""}:${activeWallet?.address ?? ""}`;
+  const registrationReady = readyVaultKey === vaultSetupKey;
 
   const selectedHolding = useMemo(
     () => holdings.find((row) => row.mint === selectedMint) ?? holdings[0] ?? null,
@@ -66,13 +89,16 @@ export function VaultActionForm({
       : action === "shield"
         ? selectedHolding.depositEnabled
         : selectedHolding.stealthPoolEnabled;
-  const controlsDisabled = isLoading || holdings.length === 0;
-  const submitDisabled = controlsDisabled || !actionAllowed;
+  const controlsDisabled = isLoading || holdings.length === 0 || isSubmitting;
+  const submitDisabled = controlsDisabled || !actionAllowed || !registrationReady;
   const submitLabel = selectedHolding
     ? `${action === "shield" ? "Shield" : "Unshield"} ${selectedHolding.symbol}`
     : action === "shield"
       ? "Shield"
       : "Unshield";
+  const pendingLabel = selectedHolding
+    ? `${action === "shield" ? "Shielding" : "Unshielding"} ${selectedHolding.symbol}...`
+    : "Confirming...";
   const hint = umbraVaultBalanceHint({
     action,
     holding: selectedHolding,
@@ -86,7 +112,7 @@ export function VaultActionForm({
     setFeedback(null);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFeedback(null);
 
@@ -115,11 +141,48 @@ export function VaultActionForm({
       return;
     }
 
+    if (selectedHolding?.decimals == null) {
+      setFeedback({
+        message: "Token decimals are unavailable. Refresh vault.",
+        tone: "danger",
+      });
+      return;
+    }
+
+    const amountAtomic = decimalToAtomic(amount, selectedHolding.decimals);
+    if (amountAtomic == null) {
+      setFieldError(`Use a valid ${selectedHolding.symbol} amount.`);
+      return;
+    }
+
     setFieldError(null);
-    setFeedback({
-      tone: "warning",
-      message: `${submitLabel} preflight passed. Transaction preparation still needs the web gateway endpoint.`,
-    });
+    setIsSubmitting(true);
+
+    try {
+      const result = await executeUmbraVaultAction({
+        action,
+        amountAtomic,
+        cluster,
+        gatewayOrigin,
+        holding: selectedHolding,
+        wallet: activeWallet,
+      });
+
+      setFeedback({
+        tone: "success",
+        message: result.signatureLabel
+          ? `${submitLabel} submitted (${result.signatureLabel}).`
+          : `${submitLabel} submitted.`,
+      });
+      onActionComplete();
+    } catch (error) {
+      setFeedback({
+        message: umbraVaultExecutionMessage(error),
+        tone: "danger",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -136,6 +199,19 @@ export function VaultActionForm({
           {isLoading ? "Loading" : selectedHolding?.symbol ?? "Select token"}
         </p>
       </div>
+
+      <UmbraRegistrationSetup
+        key={vaultSetupKey}
+        activeWallet={activeWallet}
+        cluster={cluster}
+        disabled={isSubmitting}
+        gatewayOrigin={gatewayOrigin}
+        onReadyChange={(ready) => {
+          setReadyVaultKey(ready ? vaultSetupKey : null);
+        }}
+        onSetupComplete={onActionComplete}
+        walletReady={walletReady}
+      />
 
       <div className="grid grid-cols-2 gap-1 rounded-full border border-border bg-background p-1">
         {vaultActions.map(({ id, label, Icon }) => {
@@ -226,7 +302,7 @@ export function VaultActionForm({
       ) : null}
 
       <Button type="submit" className="w-full" disabled={submitDisabled}>
-        {submitLabel}
+        {isSubmitting ? pendingLabel : submitLabel}
       </Button>
     </form>
   );

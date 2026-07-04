@@ -40,18 +40,19 @@ export function AppSidebar() {
     >
       <div
         className={cn(
-          "relative z-10 flex min-h-0 gap-3 overflow-x-auto px-4 py-3 md:h-full md:flex-col md:overflow-hidden md:p-4",
+          "relative z-10 flex min-h-0 gap-3 overflow-x-auto px-3 py-2 md:h-full md:flex-col md:overflow-hidden md:p-4",
           collapsed && "md:px-1",
         )}
       >
         <div
           className={cn(
-            "flex shrink-0 items-center gap-3 md:border-b md:border-border/70 md:pb-4",
+            "hidden shrink-0 items-center md:flex md:border-b md:border-border/70 md:pb-4",
             collapsed ? "md:justify-center md:gap-1" : "md:justify-between",
           )}
         >
           <Link
             href="/"
+            aria-label="Offpay home"
             className={cn(
               "flex h-11 min-w-0 shrink-0 items-center gap-3 rounded-lg px-2 text-foreground",
               "transition-colors hover:text-foreground focus-visible:outline-none",
@@ -63,18 +64,16 @@ export function AppSidebar() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
               <Image
                 src={offpayAppIconPath}
-                alt="Offpay app icon"
+                alt=""
                 width={28}
                 height={28}
                 priority
                 className="h-7 w-7 object-contain brightness-0 invert"
+                aria-hidden="true"
               />
             </span>
             <span
-              className={cn(
-                "hidden min-w-0 truncate text-base font-bold md:inline",
-                collapsed && "md:sr-only",
-              )}
+              className={cn("min-w-0 truncate text-base font-bold", collapsed && "md:sr-only")}
             >
               Offpay
             </span>
@@ -83,7 +82,7 @@ export function AppSidebar() {
             type="button"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
-            className="hidden h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card motion-reduce:transition-none md:inline-flex"
+            className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card motion-reduce:transition-none"
             onClick={() => setCollapsed((value) => !value)}
           >
             {collapsed ? (
@@ -102,7 +101,12 @@ export function AppSidebar() {
           Menu
         </p>
         <nav aria-label="Primary" className="min-w-0 flex-1">
-          <ul className={cn("flex gap-1 md:flex-col md:gap-2", collapsed && "md:items-center")}>
+          <ul
+            className={cn(
+              "flex justify-around gap-1 md:flex-col md:justify-normal md:gap-2",
+              collapsed && "md:items-center",
+            )}
+          >
             {appNavItems.map((item) => {
               const active = isAppNavItemActive(pathname, item.href);
               const Icon = navIconByKey[item.key];
@@ -112,9 +116,10 @@ export function AppSidebar() {
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
+                    aria-label={item.label}
                     className={cn(
-                      "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold",
-                      "transition-colors duration-150 focus-visible:outline-none",
+                      "flex h-11 w-full items-center justify-center gap-3 rounded-lg px-3 text-sm font-semibold",
+                      "transition-colors duration-150 focus-visible:outline-none md:justify-start",
                       "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       "focus-visible:ring-offset-card hover:text-foreground motion-reduce:transition-none",
                       collapsed && "md:justify-center md:px-0",
@@ -123,7 +128,12 @@ export function AppSidebar() {
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span className={cn("whitespace-nowrap", collapsed && "md:sr-only")}>
+                    <span
+                      className={cn(
+                        "hidden whitespace-nowrap md:inline",
+                        collapsed && "md:sr-only",
+                      )}
+                    >
                       {item.label}
                     </span>
                   </Link>

@@ -1,7 +1,7 @@
 import type { GatewayEnv } from "./types";
 
 type GatewayConfigKey = keyof GatewayEnv;
-type HttpMethod = "GET" | "POST";
+type HttpMethod = "ANY" | "GET" | "POST";
 
 type ConfigGroup = {
   id: string;
@@ -321,6 +321,14 @@ export const manualWorkflowRoutes = [
   },
   {
     method: "POST",
+    path: "/web/rpc/:network",
+    capability: "sdk-rpc-proxy",
+    implemented: true,
+    public: true,
+    configGroups: ["devnet-rpc-http", "mainnet-rpc-http"],
+  },
+  {
+    method: "POST",
     path: "/web/rpc/fee-for-message",
     capability: "rpc-fee",
     implemented: false,
@@ -467,6 +475,22 @@ export const manualWorkflowRoutes = [
     method: "GET",
     path: "/web/umbra/holdings",
     capability: "umbra-holdings",
+    implemented: true,
+    public: true,
+    configGroups: ["umbra-devnet-relayer", "umbra-mainnet-relayer"],
+  },
+  {
+    method: "ANY",
+    path: "/web/umbra/indexer/:network/:proxyPath",
+    capability: "umbra-sdk-indexer-proxy",
+    implemented: true,
+    public: true,
+    configGroups: ["umbra-devnet", "umbra-mainnet"],
+  },
+  {
+    method: "ANY",
+    path: "/web/umbra/relayer/:network/:proxyPath",
+    capability: "umbra-sdk-relayer-proxy",
     implemented: true,
     public: true,
     configGroups: ["umbra-devnet-relayer", "umbra-mainnet-relayer"],

@@ -25,7 +25,7 @@ const nativeSolHolding: UmbraVaultHolding = {
 };
 
 function portfolio({
-  lamports = "10000",
+  lamports = "50000000",
   tokenAmount = "1000000",
 }: {
   lamports?: string;
@@ -77,7 +77,7 @@ describe("Umbra vault preflight validation", () => {
       action: "shield",
       amount: "1",
       holding,
-      portfolio: portfolio({ lamports: "4000", tokenAmount: "1000000" }),
+      portfolio: portfolio({ lamports: "10000000", tokenAmount: "1000000" }),
       portfolioError: null,
       portfolioLoading: false,
       walletReady: true,
@@ -85,11 +85,11 @@ describe("Umbra vault preflight validation", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Need at least 0.000005 SOL for network fees.",
+      message: "Need at least 0.02 SOL for Umbra setup and network fees.",
     });
   });
 
-  it("blocks unshield until encrypted balance is readable", () => {
+  it("allows unshield preflight when encrypted balance needs SDK confirmation", () => {
     const result = validateUmbraVaultPreflight({
       action: "unshield",
       amount: "1",
@@ -100,11 +100,7 @@ describe("Umbra vault preflight validation", () => {
       walletReady: true,
     });
 
-    expect(result).toEqual({
-      ok: false,
-      message: "Encrypted dUSDC balance is not readable yet.",
-      retryBalances: true,
-    });
+    expect(result).toEqual({ ok: true });
   });
 
   it("passes shield when public token balance and SOL fees are covered", () => {
@@ -112,7 +108,7 @@ describe("Umbra vault preflight validation", () => {
       action: "shield",
       amount: "1",
       holding,
-      portfolio: portfolio({ lamports: "10000", tokenAmount: "1000000" }),
+      portfolio: portfolio({ lamports: "50000000", tokenAmount: "1000000" }),
       portfolioError: null,
       portfolioLoading: false,
       walletReady: true,
@@ -124,9 +120,9 @@ describe("Umbra vault preflight validation", () => {
   it("uses native SOL as spendable wSOL while reserving network fees", () => {
     const result = validateUmbraVaultPreflight({
       action: "shield",
-      amount: "0.000005",
+      amount: "0.03",
       holding: nativeSolHolding,
-      portfolio: portfolio({ lamports: "10000" }),
+      portfolio: portfolio({ lamports: "50000000" }),
       portfolioError: null,
       portfolioLoading: false,
       walletReady: true,
@@ -138,9 +134,9 @@ describe("Umbra vault preflight validation", () => {
   it("blocks wSOL shield amounts that consume SOL fee coverage", () => {
     const result = validateUmbraVaultPreflight({
       action: "shield",
-      amount: "0.000006",
+      amount: "0.030000001",
       holding: nativeSolHolding,
-      portfolio: portfolio({ lamports: "10000" }),
+      portfolio: portfolio({ lamports: "50000000" }),
       portfolioError: null,
       portfolioLoading: false,
       walletReady: true,
@@ -149,7 +145,7 @@ describe("Umbra vault preflight validation", () => {
     expect(result).toEqual({
       ok: false,
       field: "amount",
-      message: "Insufficient wSOL. Available: 0.000005 wSOL.",
+      message: "Insufficient wSOL. Available: 0.03 wSOL.",
     });
   });
 });

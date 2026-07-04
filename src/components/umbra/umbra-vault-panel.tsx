@@ -173,9 +173,16 @@ export function UmbraVaultPanel({
     >
       <div>
         <VaultActionForm
+          activeWallet={wallet.activeWallet}
+          cluster={cluster}
           compact={compact}
+          gatewayOrigin={gatewayOrigin}
           holdings={holdings}
           isLoading={holdingsQuery.isLoading}
+          onActionComplete={() => {
+            void holdingsQuery.refetch();
+            void publicBalancesQuery.refetch();
+          }}
           onPortfolioRetry={() => void publicBalancesQuery.refetch()}
           portfolio={publicBalancesQuery.data}
           portfolioError={publicBalancesQuery.error}
