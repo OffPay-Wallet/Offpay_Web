@@ -1,4 +1,6 @@
-import { AlertCircle, LockKeyhole, RefreshCw } from "lucide-react";
+"use client";
+
+import { AlertCircle, BadgeCheck, LockKeyhole, RefreshCw } from "lucide-react";
 
 import { AssetAvatar } from "@/components/dashboard/asset-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -76,7 +78,7 @@ export function VaultContent({
           balanceLoading={decryptedLoading}
           compact={compact}
           holding={holding}
-          logo={logoByMint[holding.mint]?.logo ?? null}
+          metadata={logoByMint[holding.mint]}
         />
       ))}
     </div>
@@ -126,31 +128,42 @@ function HoldingRow({
   balanceLoading,
   compact,
   holding,
-  logo,
+  metadata,
 }: {
   balance: UmbraEncryptedBalance | undefined;
   balanceError: boolean;
   balanceLoading: boolean;
   compact: boolean;
   holding: UmbraVaultHolding;
-  logo: string | null;
+  metadata: WalletTokenMetadata | undefined;
 }) {
+  const logo = metadata?.logo ?? null;
+  const verified = metadata?.verified ?? false;
+
   return (
     <div
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3",
-        compact ? "p-3" : "p-4",
+        "grid grid-cols-[minmax(0,1fr)_auto] gap-3",
+        compact ? "items-center p-3" : "items-start p-4",
       )}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-xs font-semibold text-secondary-foreground">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-xs font-semibold text-secondary-foreground">
           {holding.symbol.slice(0, 2)}
           <span className="absolute inset-0 flex items-center justify-center">
             <AssetAvatar logo={logo} name={holding.symbol} symbol={holding.symbol} />
           </span>
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{holding.symbol}</p>
+        <div className="min-w-0 space-y-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="truncate text-sm font-semibold">{holding.symbol}</p>
+            {verified ? (
+              <BadgeCheck
+                className="h-3.5 w-3.5 shrink-0 text-success"
+                aria-label="Verified token"
+              />
+            ) : null}
+          </div>
           <p className="truncate text-xs text-muted-foreground">
             {holding.name || truncateMint(holding.mint)}
           </p>

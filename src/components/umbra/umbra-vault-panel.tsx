@@ -252,54 +252,31 @@ export function UmbraVaultPanel({
   }
 
   return (
-    <div
-      className={cn(
-        "grid gap-5 xl:grid-cols-[minmax(18rem,0.78fr)_minmax(0,1fr)]",
-        className,
-      )}
-    >
-      <div>
-        <VaultActionForm
-          activeWallet={wallet.activeWallet}
-          cluster={cluster}
-          compact={compact}
-          gatewayOrigin={gatewayOrigin}
-          holdings={holdings}
-          isLoading={holdingsQuery.isLoading}
-          onActionComplete={() => {
-            void registrationQuery.refetch();
-            void holdingsQuery.refetch();
-            void publicBalancesQuery.refetch();
-            if (balancesRevealed) {
-              void decryptedBalancesQuery.refetch();
-            } else {
-              setBalancesRevealed(true);
-              void decryptedBalancesQuery.refetch();
-            }
-          }}
-          onPortfolioRetry={() => void publicBalancesQuery.refetch()}
-          onRegistrationRetry={() => void registrationQuery.refetch()}
-          portfolio={publicBalancesQuery.data}
-          portfolioError={publicBalancesQuery.error}
-          portfolioLoading={publicBalancesQuery.isLoading || publicBalancesQuery.isFetching}
-          registrationError={registrationQuery.error}
-          registrationLoading={registrationQuery.isLoading || registrationQuery.isFetching}
-          registrationStatus={registrationQuery.data}
-          feeReserveLamports={feeReserveQuery.data ?? null}
-          walletReady={walletReady}
-        />
-      </div>
-
-      <section className="min-w-0 rounded-lg border border-border bg-card p-5 text-card-foreground">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Encrypted holdings</h2>
-          <div className="flex items-center gap-2">
-            {revealControl}
-            <LockKeyhole className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </div>
-        </div>
-        {holdingsContent}
-      </section>
+    <div className={cn("flex flex-col gap-5", className)}>
+      <VaultActionForm
+        activeWallet={wallet.activeWallet}
+        cluster={cluster}
+        compact={compact}
+        gatewayOrigin={gatewayOrigin}
+        holdings={holdings}
+        isLoading={holdingsQuery.isLoading}
+        logoByMint={logoByMint}
+        onActionComplete={() => {
+          void registrationQuery.refetch();
+          void holdingsQuery.refetch();
+          void publicBalancesQuery.refetch();
+        }}
+        onPortfolioRetry={() => void publicBalancesQuery.refetch()}
+        onRegistrationRetry={() => void registrationQuery.refetch()}
+        portfolio={publicBalancesQuery.data}
+        portfolioError={publicBalancesQuery.error}
+        portfolioLoading={publicBalancesQuery.isLoading || publicBalancesQuery.isFetching}
+        registrationError={registrationQuery.error}
+        registrationLoading={registrationQuery.isLoading || registrationQuery.isFetching}
+        registrationStatus={registrationQuery.data}
+        feeReserveLamports={feeReserveQuery.data ?? null}
+        walletReady={walletReady}
+      />
     </div>
   );
 }

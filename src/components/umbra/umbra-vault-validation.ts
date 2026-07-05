@@ -247,6 +247,40 @@ function validateUnshieldPreflight({
   return feeMessage ? { ok: false, message: feeMessage } : { ok: true };
 }
 
+/**
+ * The spendable atomic amount for the active side of the flow. Shield reads the
+ * public wallet balance (SOL is net of the fee reserve); unshield reads the
+ * decrypted shielded balance. Returned value is exactly what preflight
+ * validates against, so "Max" and quick-fill chips can never overshoot.
+ */
+export function umbraVaultAvailableAtomic({
+  action,
+  feeReserveLamports,
+  holding,
+  portfolio,
+}: {
+  action: VaultAction;
+  feeReserveLamports?: bigint | null;
+  holding: UmbraVaultHolding | null;
+  portfolio: WalletPortfolio | undefined;
+}): bigint | null {
+  if (!holding || holding.decimals == null) return null;
+
+  if (action === "unshield") {
+    if (holding.uiAmountString == null) return null;
+    return decimalToAtomic(holding.uiAmountString, holding.decimals);
+  }
+
+  if (!portfolio) return null;
+
+  const publicToken = findPublicToken(portfolio, holding);
+  if (holding.mint === nativeSolMint && !publicToken) {
+    return nativeSolSpendableAmount(portfolio, feeReserveLamports);
+  }
+
+  return readAtomicAmount(publicToken?.amount);
+}
+
 export function umbraVaultBalanceHint({
   action,
   holding,
