@@ -71,22 +71,32 @@ export function AppSidebar() {
         // Mobile: a normal full-width bottom bar in flow.
         // md+: an in-flow rail whose width animates between 0 and the panel
         // width, so the main content reflows smoothly instead of being covered.
-        "relative w-full shrink-0",
-        "md:h-full md:overflow-hidden",
-        "md:transition-[width] md:duration-200 md:ease-out md:will-change-[width] md:motion-reduce:transition-none",
-        revealed ? "md:w-[var(--sidebar-w)]" : "md:w-0",
-        // Keyboard focus (not mouse-click focus) keeps it open for a11y; using
-        // has-[:focus-visible] avoids a clicked link locking the rail open.
-        "md:has-[:focus-visible]:w-[var(--sidebar-w)]",
+        // z-40 keeps the rail above any full-screen page background (e.g. the
+        // vault matrix overlay) so glyphs never paint over the chrome.
+        // md+: reserves no layout width — the panel is an overlay — so the main
+        // content never shifts when the rail reveals over the empty margin.
+        "relative z-40 w-full shrink-0",
+        "md:h-full md:w-0",
       )}
       style={{ ["--sidebar-w" as string]: PANEL_WIDTH }}
     >
       <div
+        // Opaque base colour sits under the liquid-glass gradient layers (which
+        // are all semi-transparent) so the panel never reveals the page
+        // background — e.g. the full-screen matrix rain — through the glass.
+        style={{ backgroundColor: "var(--offpay-color-night)" }}
         className={cn(
           "offpay-liquid-glass relative isolate w-full overflow-hidden rounded-2xl text-card-foreground",
-          // Fixed panel width on md+ so its contents never squish while the rail
-          // animates open/closed; the rail's overflow-hidden clips it when closed.
-          "md:h-full md:w-[var(--sidebar-w)]",
+          // md+: overlay panel that slides in from the left over the empty
+          // margin, revealed on cursor proximity or keyboard focus. Transform-
+          // only transition keeps it smooth and never reflows the main content.
+          "md:absolute md:inset-y-0 md:left-0 md:h-full md:w-[var(--sidebar-w)]",
+          "md:will-change-transform md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none",
+          // Retract fully off-screen. The rail starts inside the shell's p-4
+          // padding, so translating only its own width leaves a ~16px sliver;
+          // the extra offset (plus buffer for the glass glow) clears it.
+          revealed ? "md:translate-x-0" : "md:-translate-x-[calc(100%+2rem)]",
+          "md:has-[:focus-visible]:translate-x-0",
         )}
       >
         <div className="relative z-10 flex min-h-0 gap-3 overflow-x-auto px-3 py-2 md:h-full md:flex-col md:overflow-hidden md:p-4">

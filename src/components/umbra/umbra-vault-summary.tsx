@@ -2,7 +2,6 @@
 
 import { AlertCircle, ArrowRight, CheckCircle2, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +12,8 @@ export type FeedbackTone = "danger" | "warning" | "success";
 type RouteEndpoint = { Icon: typeof Wallet; label: string };
 
 function routeEndpoints(action: VaultAction): { from: RouteEndpoint; to: RouteEndpoint } {
-  const wallet: RouteEndpoint = { Icon: Wallet, label: "Public wallet" };
-  const shielded: RouteEndpoint = { Icon: ShieldCheck, label: "Encrypted balance" };
+  const wallet: RouteEndpoint = { Icon: Wallet, label: "Wallet" };
+  const shielded: RouteEndpoint = { Icon: ShieldCheck, label: "Private" };
 
   return action === "shield"
     ? { from: wallet, to: shielded }
@@ -36,34 +35,30 @@ export function UmbraVaultSummary({
   const isShield = action === "shield";
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-secondary/15 p-4">
-      <div
-        key={action}
-        className="flex items-center justify-between gap-3 duration-200 ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1"
-      >
-        <div className="flex min-w-0 items-center gap-2 text-sm">
+    <div className="divide-y divide-white/[0.06] rounded-2xl bg-white/[0.04] text-xs">
+      <div className="flex h-10 items-center justify-between gap-3 px-3">
+        <span className="text-muted-foreground">Route</span>
+        <span
+          key={action}
+          className="flex min-w-0 items-center gap-1.5 font-medium text-foreground duration-200 ease-out motion-safe:animate-in motion-safe:fade-in-0"
+        >
           <Endpoint Icon={from.Icon} label={from.label} muted />
-          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Endpoint Icon={to.Icon} label={to.label} />
-        </div>
-        <Badge tone={isShield ? "success" : "neutral"} className="shrink-0">
-          {isShield ? "Private" : "Public"}
-        </Badge>
+        </span>
       </div>
-
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        {isShield
-          ? "Funds move into your encrypted balance. Amounts stay private on-chain."
-          : "Funds return to your public wallet and become visible on-chain."}
-        {feeReserveLabel ? (
-          <>
-            {" "}
-            Keep at least{" "}
-            <span className="font-mono tabular-nums text-foreground/80">{feeReserveLabel}</span> for
-            setup and network fees.
-          </>
-        ) : null}
-      </p>
+      <div className="flex h-10 items-center justify-between gap-3 px-3">
+        <span className="text-muted-foreground">
+          {isShield ? "Network reserve" : "Visibility"}
+        </span>
+        {isShield ? (
+          <span className="font-mono tabular-nums text-foreground/90">
+            {feeReserveLabel ?? "—"}
+          </span>
+        ) : (
+          <span className="font-medium text-foreground/90">Public on-chain</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -80,11 +75,11 @@ function Endpoint({
   return (
     <span
       className={cn(
-        "inline-flex min-w-0 items-center gap-1.5 font-medium",
+        "inline-flex min-w-0 items-center gap-1",
         muted ? "text-muted-foreground" : "text-foreground",
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="truncate">{label}</span>
     </span>
   );
@@ -105,13 +100,13 @@ export function FormFeedback({
     <div
       role={isDanger ? "alert" : "status"}
       className={cn(
-        "flex items-start gap-2 rounded-2xl border p-3 text-xs",
+        "flex items-start gap-2 rounded-2xl p-3 text-xs",
         "duration-200 ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1",
         isDanger
-          ? "border-destructive/35 bg-destructive/10 text-destructive"
+          ? "bg-destructive/15 text-destructive"
           : isSuccess
-            ? "border-gain/35 bg-gain/10 text-gain"
-            : "border-border bg-muted text-muted-foreground",
+            ? "bg-gain/15 text-gain"
+            : "bg-muted text-muted-foreground",
       )}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

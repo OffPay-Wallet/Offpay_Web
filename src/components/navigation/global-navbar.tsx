@@ -7,7 +7,7 @@ import { offpayAppIconPath } from "@/lib/offpay/public-config";
 
 export function GlobalNavbar() {
   return (
-    <header className="bg-app-gradient z-30 shrink-0">
+    <header className="relative z-30 shrink-0 bg-transparent">
       <div className="flex min-h-14 items-center justify-end gap-2 px-3 py-2.5 sm:min-h-16 sm:gap-5 sm:px-4 md:px-6 lg:px-8">
         <Link
           href="/"
@@ -27,7 +27,7 @@ export function GlobalNavbar() {
           </span>
           <span className="hidden text-base font-bold sm:inline">Offpay</span>
         </Link>
-        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-2 rounded-full backdrop-blur-md sm:gap-5">
           <SolPriceTicker />
           <WalletAccountControl />
         </div>

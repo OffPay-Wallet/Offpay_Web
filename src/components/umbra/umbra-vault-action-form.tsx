@@ -100,6 +100,12 @@ export function VaultActionForm({
         : selectedHolding.stealthPoolEnabled;
   const controlsDisabled = isLoading || holdings.length === 0 || isSubmitting;
   const submitDisabled = controlsDisabled || !actionAllowed || !registrationReady;
+  // Only render the setup block once we positively know the wallet is
+  // unregistered (or the check errored). While the status is still loading we
+  // keep it hidden so registered wallets never see it flash in and collapse —
+  // that flash was the main layout shift.
+  const showRegistrationSetup =
+    !registrationReady && (registrationStatus?.registered === false || Boolean(registrationError));
   const submitLabel = selectedHolding
     ? `${action === "shield" ? "Shield" : "Unshield"} ${selectedHolding.symbol}`
     : action === "shield"
@@ -123,6 +129,22 @@ export function VaultActionForm({
     feeReserveLamports && feeReserveLamports > 0n
       ? `${formatAtomicAmount(feeReserveLamports, 9)} SOL`
       : null;
+
+  // Proactively reflect amount/balance validity on the CTA (Uniswap-style) so
+  // the user sees "Insufficient …" before submitting rather than after.
+  const amountAtomicValue = useMemo(
+    () => (decimals != null ? decimalToAtomic(amount, decimals) : null),
+    [amount, decimals],
+  );
+  const hasPositiveAmount = amountAtomicValue != null && amountAtomicValue > 0n;
+  const canEnterAmount = registrationReady && actionAllowed && !controlsDisabled;
+  const noBalance = canEnterAmount && availableAtomic != null && availableAtomic <= 0n;
+  const insufficientBalance =
+    canEnterAmount &&
+    hasPositiveAmount &&
+    availableAtomic != null &&
+    amountAtomicValue > availableAtomic;
+  const showBalanceError = noBalance || insufficientBalance;
 
   function clearMessages() {
     setFieldError(null);
@@ -220,19 +242,24 @@ export function VaultActionForm({
   return (
     <form
       className={cn(
-        "min-w-0 space-y-4",
-        compact ? "" : "rounded-2xl border border-border bg-card p-5 text-card-foreground",
+        "min-w-0 space-y-3",
+        // Flat, borderless, elevation-free translucent glass: a faint frosted
+        // sheen lets the background read through while the backdrop blur keeps
+        // content legible. Extra-large radius gives the soft, feathered corners.
+        compact
+          ? ""
+          : "rounded-[1.75rem] bg-gradient-to-br from-background/75 to-background/60 p-5 text-card-foreground backdrop-blur-xl",
       )}
       onSubmit={handleSubmit}
     >
       <div className="min-w-0">
-        <h2 className="text-base font-semibold">Move funds</h2>
+        <h2 className="text-sm font-semibold">Move funds</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Shield into privacy or unshield back to your wallet.
         </p>
       </div>
 
-      {registrationReady ? null : (
+      {showRegistrationSetup ? (
         <UmbraRegistrationSetup
           key={vaultSetupKey}
           activeWallet={activeWallet}
@@ -248,7 +275,7 @@ export function VaultActionForm({
           onSetupComplete={onActionComplete}
           walletReady={walletReady}
         />
-      )}
+      ) : null}
 
       <UmbraActionToggle
         action={action}
@@ -266,6 +293,7 @@ export function VaultActionForm({
         disabled={controlsDisabled}
         hasError={Boolean(fieldError)}
         holdings={holdings}
+        label={action === "shield" ? "You're shielding" : "You're unshielding"}
         logoByMint={logoByMint}
         onAmountChange={(value) => {
           setAmount(value);
@@ -293,8 +321,25 @@ export function VaultActionForm({
         <FormFeedback feedback={feedback} onPortfolioRetry={onPortfolioRetry} />
       ) : null}
 
-      <Button type="submit" className="h-12 w-full rounded-xl text-sm" disabled={submitDisabled} loading={isSubmitting}>
-        {isSubmitting ? pendingLabel : submitLabel}
+      <Button
+        type="submit"
+        className={cn(
+          "h-12 w-full rounded-2xl text-sm",
+          showBalanceError &&
+            "bg-destructive/20 text-destructive disabled:opacity-100 shadow-[0_0_30px_-6px_var(--offpay-color-red)] [text-shadow:0_0_14px_color-mix(in_srgb,var(--offpay-color-red)_65%,transparent)]",
+        )}
+        disabled={submitDisabled || !hasPositiveAmount || showBalanceError}
+        loading={isSubmitting}
+      >
+        {isSubmitting
+          ? pendingLabel
+          : showBalanceError
+            ? selectedHolding
+              ? `Insufficient ${selectedHolding.symbol}`
+              : "Insufficient balance"
+            : canEnterAmount && !hasPositiveAmount
+              ? "Enter an amount"
+              : submitLabel}
       </Button>
     </form>
   );

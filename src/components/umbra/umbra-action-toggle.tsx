@@ -33,7 +33,7 @@ export function UmbraActionToggle({
       role="tablist"
       aria-label="Vault action"
       className={cn(
-        "relative grid grid-cols-2 gap-1 rounded-2xl border border-border/70 bg-background/60 p-1",
+        "relative grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.04] p-1",
         disabled && "pointer-events-none opacity-60",
       )}
     >
@@ -42,8 +42,7 @@ export function UmbraActionToggle({
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.375rem)] rounded-xl",
-          "bg-secondary/80 shadow-[inset_0_1px_0_0_color-mix(in_srgb,var(--offpay-color-seasalt)_18%,transparent)]",
-          "ring-1 ring-inset ring-white/10",
+          "bg-white/[0.1]",
           "transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         )}
         style={{ transform: `translateX(${activeIndex * 100}%)` }}
@@ -61,7 +60,7 @@ export function UmbraActionToggle({
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             className={cn(
-              "relative z-[1] flex min-h-11 items-center justify-center gap-2 rounded-xl px-3",
+              "relative z-[1] flex min-h-10 items-center justify-center gap-2 rounded-xl px-3",
               "text-sm font-semibold transition-colors duration-200",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               selected ? "text-foreground" : "text-muted-foreground hover:text-foreground",

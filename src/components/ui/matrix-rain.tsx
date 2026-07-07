@@ -114,9 +114,13 @@ export function MatrixRain({
     }
 
     function paint() {
-      // Translucent wash fades prior glyphs into trails.
-      ctx.fillStyle = `rgba(13, 14, 16, ${trailOpacity})`;
+      // Fade prior glyphs toward transparent (destination-out) instead of
+      // painting a dark wash. This keeps the layer fully transparent except for
+      // the glyphs themselves, so it overlays the page background cleanly.
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = `rgba(0, 0, 0, ${trailOpacity})`;
       ctx.fillRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "source-over";
 
       for (let i = 0; i < columns; i += 1) {
         const x = i * fontSize;

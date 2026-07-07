@@ -67,7 +67,7 @@ const tokenMetadata: Record<UmbraNetwork, Record<string, UmbraTokenMetadata>> = 
     [nativeSolMint]: {
       decimals: 9,
       name: "Wrapped SOL",
-      symbol: "wSOL",
+      symbol: "SOL",
       tokenProgram: "spl",
     },
     "4oG4sjmopf5MzvTHLE8rpVJ2uyczxfsw2K84SUTpNDx7": {
@@ -87,7 +87,7 @@ const tokenMetadata: Record<UmbraNetwork, Record<string, UmbraTokenMetadata>> = 
     [nativeSolMint]: {
       decimals: 9,
       name: "Wrapped SOL",
-      symbol: "wSOL",
+      symbol: "SOL",
       tokenProgram: "spl",
     },
     EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: {

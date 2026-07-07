@@ -61,7 +61,7 @@ describe("gateway Umbra vault holdings", () => {
         balanceState: "encrypted",
         depositEnabled: true,
         encrypted: true,
-        symbol: "wSOL",
+        symbol: "SOL",
       }),
       expect.objectContaining({
         balanceLabel: "Encrypted",
@@ -111,7 +111,7 @@ describe("gateway Umbra vault holdings", () => {
       },
       supportedMintCount: 3,
     });
-    expect(holdings.holdings.map((holding) => holding.symbol)).toEqual(["wSOL", "dUSDC", "dUSDT"]);
+    expect(holdings.holdings.map((holding) => holding.symbol)).toEqual(["SOL", "dUSDC", "dUSDT"]);
   });
 
   it("falls back to metadata rows when the relayer host cannot be reached", async () => {

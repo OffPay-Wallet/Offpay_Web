@@ -252,7 +252,7 @@ export function UmbraVaultPanel({
   }
 
   return (
-    <div className={cn("flex flex-col gap-5", className)}>
+    <div className={cn("mx-auto flex w-full max-w-lg flex-col gap-5", className)}>
       <VaultActionForm
         activeWallet={wallet.activeWallet}
         cluster={cluster}

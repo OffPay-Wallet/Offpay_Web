@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Search } from "lucide-react";
 
 import type { UmbraVaultHolding, WalletTokenMetadata } from "@/lib/offpay/types";
 import { cn } from "@/lib/utils";
@@ -74,6 +74,7 @@ export function UmbraAmountField({
   disabled,
   hasError,
   holdings,
+  label,
   logoByMint,
   onAmountChange,
   onQuickFill,
@@ -86,6 +87,7 @@ export function UmbraAmountField({
   disabled: boolean;
   hasError: boolean;
   holdings: UmbraVaultHolding[];
+  label: string;
   logoByMint: Record<string, WalletTokenMetadata>;
   onAmountChange: (value: string) => void;
   onQuickFill: (fraction: number) => void;
@@ -95,78 +97,77 @@ export function UmbraAmountField({
   const symbol = selectedHolding?.symbol ?? "";
 
   return (
-    <div className="grid gap-2">
-      <div
-        className={cn(
-          "rounded-2xl border bg-background/50 p-4",
-          "transition-[border-color,box-shadow] duration-200 ease-out",
-          hasError
-            ? "border-destructive/55 focus-within:shadow-[0_0_0_1px_color-mix(in_srgb,var(--offpay-color-red)_50%,transparent)]"
-            : "border-border/70 focus-within:border-foreground/35 focus-within:shadow-[0_0_0_1px_color-mix(in_srgb,var(--offpay-color-seasalt)_20%,transparent),0_20px_50px_-30px_color-mix(in_srgb,var(--offpay-color-seasalt)_45%,transparent)]",
-          disabled && "opacity-60",
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <input
-            className={cn(
-              "min-w-0 flex-1 bg-transparent font-mono text-4xl font-semibold leading-none tabular-nums",
-              "text-foreground outline-none placeholder:text-muted-foreground/40",
-            )}
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="0"
-            value={amount}
-            disabled={disabled}
-            aria-invalid={hasError ? "true" : undefined}
-            aria-describedby={hasError ? "umbra-vault-amount-error" : undefined}
-            aria-label="Amount"
-            onChange={(event) => onAmountChange(event.target.value)}
-          />
-          <TokenSelect
-            disabled={disabled || holdings.length === 0}
-            holdings={holdings}
-            logoByMint={logoByMint}
-            onSelect={onSelectHolding}
-            selectedHolding={selectedHolding}
-          />
-        </div>
+    <div
+      className={cn(
+        "rounded-2xl p-4 transition-colors duration-200 ease-out",
+        hasError ? "bg-destructive/10" : "bg-white/[0.04] focus-within:bg-white/[0.07]",
+        disabled && "opacity-60",
+      )}
+    >
+      <span className="block text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+        {label}
+      </span>
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-3">
-          <div className="flex items-center gap-1.5">
-            {quickFills.map((quick) => (
-              <button
-                key={quick.label}
-                type="button"
-                disabled={disabled || !availableEnabled}
-                onClick={() => onQuickFill(quick.fraction)}
-                className={cn(
-                  "rounded-full border border-border/70 px-2.5 py-1 text-xs font-semibold",
-                  "text-muted-foreground transition-all duration-150",
-                  "hover:border-foreground/40 hover:text-foreground",
-                  "active:scale-[0.96] motion-reduce:active:scale-100",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  "disabled:pointer-events-none disabled:opacity-40",
-                  quick.fraction === 1 && "text-foreground",
-                )}
-              >
-                {quick.label}
-              </button>
-            ))}
-          </div>
-          <p className="truncate text-right text-xs text-muted-foreground">
-            {availableLabel ? (
-              <>
-                <span className="text-muted-foreground/70">Balance </span>
-                <span className="font-mono tabular-nums text-foreground/90">{availableLabel}</span>
-                {symbol ? <span className="text-muted-foreground/70"> {symbol}</span> : null}
-              </>
-            ) : (
-              <span className="text-muted-foreground/60">Balance unavailable</span>
-            )}
-          </p>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <input
+          className={cn(
+            "min-w-0 flex-1 bg-transparent font-mono text-3xl font-semibold leading-none tabular-nums",
+            "text-foreground outline-none placeholder:text-muted-foreground/40",
+          )}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="0"
+          value={amount}
+          disabled={disabled}
+          aria-invalid={hasError ? "true" : undefined}
+          aria-describedby={hasError ? "umbra-vault-amount-error" : undefined}
+          aria-label="Amount"
+          onChange={(event) => onAmountChange(event.target.value)}
+        />
+        <TokenSelect
+          disabled={disabled || holdings.length === 0}
+          holdings={holdings}
+          logoByMint={logoByMint}
+          onSelect={onSelectHolding}
+          selectedHolding={selectedHolding}
+        />
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          {quickFills.map((quick) => (
+            <button
+              key={quick.label}
+              type="button"
+              disabled={disabled || !availableEnabled}
+              onClick={() => onQuickFill(quick.fraction)}
+              className={cn(
+                "rounded-full bg-white/[0.06] px-2.5 py-1 text-xs font-semibold",
+                "text-muted-foreground transition-colors duration-150",
+                "hover:bg-white/[0.12] hover:text-foreground",
+                "active:scale-[0.96] motion-reduce:active:scale-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "disabled:pointer-events-none disabled:opacity-40",
+                quick.fraction === 1 && "text-foreground",
+              )}
+            >
+              {quick.label}
+            </button>
+          ))}
         </div>
+        <p className="truncate text-right text-xs text-muted-foreground">
+          {availableLabel ? (
+            <>
+              <span className="text-muted-foreground/70">Balance </span>
+              <span className="font-mono tabular-nums text-foreground/90">{availableLabel}</span>
+              {symbol ? <span className="text-muted-foreground/70"> {symbol}</span> : null}
+            </>
+          ) : (
+            <span className="text-muted-foreground/60">Balance unavailable</span>
+          )}
+        </p>
       </div>
     </div>
   );
@@ -202,9 +203,9 @@ function TokenSelect({
           if (!single) setOpen(true);
         }}
         className={cn(
-          "flex items-center gap-2 rounded-full border border-border/70 bg-secondary/40 py-1.5 pl-1.5 pr-3",
-          "text-sm font-semibold text-foreground transition-all duration-150",
-          !single && "hover:border-foreground/40 hover:bg-secondary/60",
+          "flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-1.5 pr-3",
+          "text-sm font-semibold text-foreground transition-colors duration-150",
+          !single && "hover:bg-white/[0.14]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:opacity-50",
           single && "cursor-default",
@@ -264,10 +265,24 @@ function TokenDrawer({
 }) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(false);
+  const [query, setQuery] = useState("");
+  // The shade follows the hovered row; when nothing is hovered it falls back to
+  // the selected token. The tick stays on the selected token until a click.
+  const [hoveredMint, setHoveredMint] = useState<string | null>(null);
 
   // Mount synchronously on open (during render, not in an effect) so the enter
   // transition can play from the first painted frame.
   if (open && !mounted) setMounted(true);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredHoldings = normalizedQuery
+    ? holdings.filter(
+        (holding) =>
+          holding.symbol.toLowerCase().includes(normalizedQuery) ||
+          holding.name?.toLowerCase().includes(normalizedQuery) ||
+          holding.mint.toLowerCase().includes(normalizedQuery),
+      )
+    : holdings;
 
   // Enter: flip to visible on the frame after mount so the transition animates.
   useEffect(() => {
@@ -280,7 +295,11 @@ function TokenDrawer({
   useEffect(() => {
     if (open || !mounted) return;
     const frame = window.requestAnimationFrame(() => setVisible(false));
-    const timeout = window.setTimeout(() => setMounted(false), DRAWER_TRANSITION_MS);
+    const timeout = window.setTimeout(() => {
+      setMounted(false);
+      setQuery("");
+      setHoveredMint(null);
+    }, DRAWER_TRANSITION_MS);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
@@ -331,20 +350,56 @@ function TokenDrawer({
         <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Select token
         </p>
-        <ul role="listbox" aria-label="Select token" className="max-h-[60vh] overflow-y-auto pb-1">
-          {holdings.map((holding) => {
-            const active = holding.mint === selectedMint;
+
+        <div className="relative mb-2 px-1">
+          <Search
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <input
+            autoFocus
+            type="text"
+            inputMode="search"
+            autoComplete="off"
+            spellCheck={false}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search ticker or address"
+            aria-label="Search tokens by ticker or address"
+            className={cn(
+              "w-full rounded-xl bg-white/[0.05] py-2.5 pl-10 pr-3 text-sm text-foreground",
+              "outline-none transition-colors placeholder:text-muted-foreground/70",
+              "focus:bg-white/[0.08]",
+            )}
+          />
+        </div>
+
+        <ul
+          role="listbox"
+          aria-label="Select token"
+          className="max-h-[52vh] overflow-y-auto pb-1"
+          onMouseLeave={() => setHoveredMint(null)}
+        >
+          {filteredHoldings.length === 0 ? (
+            <li className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No tokens match &ldquo;{query.trim()}&rdquo;.
+            </li>
+          ) : null}
+          {filteredHoldings.map((holding) => {
+            const selected = holding.mint === selectedMint;
+            const shaded = hoveredMint ? holding.mint === hoveredMint : selected;
 
             return (
               <li key={holding.mint}>
                 <button
                   type="button"
                   role="option"
-                  aria-selected={active}
+                  aria-selected={selected}
                   onClick={() => onSelect(holding.mint)}
+                  onMouseEnter={() => setHoveredMint(holding.mint)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors duration-150",
-                    active ? "bg-secondary" : "hover:bg-secondary/60",
+                    "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors duration-150",
+                    shaded ? "bg-white/[0.06]" : "bg-transparent",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   )}
                 >
@@ -361,7 +416,7 @@ function TokenDrawer({
                       {holding.name || "Token"}
                     </span>
                   </span>
-                  {active ? (
+                  {selected ? (
                     <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
                   ) : null}
                 </button>
