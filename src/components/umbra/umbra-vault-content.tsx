@@ -164,9 +164,9 @@ function HoldingRow({
   metadata: WalletTokenMetadata | undefined;
 }) {
   const logo = metadata?.logo ?? null;
-  const verified = metadata?.verified === true && !maskEncryptedText;
-  const title = maskEncryptedText ? "****" : holding.symbol;
-  const subtitle = holding.name || truncateMint(holding.mint);
+  const verified = metadata?.verified ?? false;
+  const title = tokenTickerText(holding.symbol);
+  const subtitle = tokenDetailText(holding);
 
   return (
     <div
@@ -186,15 +186,7 @@ function HoldingRow({
         </span>
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <p
-              className={cn(
-                "truncate text-sm font-semibold",
-                maskEncryptedText && "font-mono tracking-widest",
-              )}
-              aria-label={maskEncryptedText ? "Encrypted token" : undefined}
-            >
-              {title}
-            </p>
+            <p className="truncate text-sm font-semibold">{title}</p>
             {verified ? (
               <BadgeCheck
                 className="h-3.5 w-3.5 shrink-0 text-success"
@@ -289,6 +281,18 @@ function decryptedAmountText(
   if (holding.decimals == null) return null;
 
   return `${formatAtomicAmount(balance.amountAtomic, holding.decimals)} ${holding.symbol}`;
+}
+
+function tokenDetailText(holding: UmbraVaultHolding): string {
+  const cleanedName = holding.name
+    ?.replace(/^dummy\s+/i, "")
+    .replace(/^wrapped\s+/i, "")
+    .trim();
+  return cleanedName || truncateMint(holding.mint);
+}
+
+function tokenTickerText(symbol: string): string {
+  return symbol.toLowerCase() === "wsol" ? "SOL" : symbol;
 }
 
 function truncateMint(value: string): string {

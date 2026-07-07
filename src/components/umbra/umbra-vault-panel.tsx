@@ -228,7 +228,7 @@ export function UmbraVaultPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto">{holdingsContent}</div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="offpay-vault-action-shelf mt-3 grid grid-cols-2 gap-2 rounded-[2rem] p-1.5">
           <Link
             href="/vault"
             className={cn(
