@@ -41,7 +41,12 @@ export function AssetRow({
     typeof priceUsd === "number" && priceUsd > 0 ? formatTokenPrice(priceUsd) : "--";
 
   return (
-    <div className={cn(assetRowGridClass, "p-4")}>
+    <div
+      className={cn(
+        assetRowGridClass,
+        "rounded-[2rem] px-4 py-3.5 transition-colors hover:bg-secondary/20",
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <AssetAvatar logo={logo} name={name} symbol={symbol} />
         <div className="min-w-0">

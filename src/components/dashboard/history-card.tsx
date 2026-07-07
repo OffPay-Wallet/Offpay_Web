@@ -95,8 +95,8 @@ export function HistoryCard({
   }, []);
 
   return (
-    <section className="rounded-[28px] border border-border/60 bg-card/80 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 p-5">
+    <section className="offpay-dashboard-card text-card-foreground">
+      <div className="flex items-center justify-between gap-3 px-6 pb-3 pt-6">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Clock3 className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           Activity
@@ -117,7 +117,7 @@ export function HistoryCard({
         />
       </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-border/60 p-4">
+      <div className="flex items-center justify-end gap-3 px-5 pb-5 pt-2">
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -204,9 +204,9 @@ function HistoryBody({
 
   if (isLoading) {
     return (
-      <div className="divide-y divide-border">
+      <div className="space-y-1.5 px-2 pb-2">
         {Array.from({ length: pageSize }).map((_, index) => (
-          <div key={index} className="flex items-center gap-3 p-4">
+          <div key={index} className="flex items-center gap-3 rounded-[2rem] p-4">
             <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-secondary" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-40 animate-pulse rounded bg-secondary" />
@@ -238,7 +238,7 @@ function HistoryBody({
   return (
     <div>
       <HistoryTableHeader />
-      <ul className={cn("divide-y divide-border", isFetching && "opacity-60")}>
+      <ul className={cn("space-y-1.5 px-2 pb-2", isFetching && "opacity-60")}>
         {signatures.map((entry) => (
           <HistoryRow
             key={entry.signature}
@@ -289,7 +289,7 @@ function HistoryRow({
       }}
       className={cn(
         historyRowGridClass,
-        "cursor-pointer p-4 transition-colors hover:bg-secondary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        "cursor-pointer rounded-[2rem] px-4 py-3.5 transition-colors hover:bg-secondary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
       )}
       aria-label="View transaction details"
     >

@@ -42,8 +42,8 @@ export function PublicAssetsCard({
   walletAddress: string | undefined;
 }) {
   return (
-    <section className="h-full overflow-hidden rounded-[28px] border border-border/60 bg-card/80 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 p-5">
+    <section className="offpay-dashboard-card h-full text-card-foreground">
+      <div className="flex items-center justify-between gap-3 px-6 pb-3 pt-6">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Coins className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           Public assets
@@ -76,7 +76,7 @@ function AssetTableHeader({
     <div
       className={cn(
         assetRowGridClass,
-        "hidden border-b border-border/60 px-4 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:grid",
+        "hidden px-6 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:grid",
       )}
     >
       <span>Asset</span>
@@ -134,9 +134,9 @@ function PublicAssetsContent({
 
   if (isLoading) {
     return (
-      <div className="divide-y divide-border">
+      <div className="space-y-1.5 px-2 pb-2">
         {[0, 1].map((row) => (
-          <div key={row} className="flex items-center gap-3 p-4">
+          <div key={row} className="flex items-center gap-3 rounded-[2rem] p-4">
             <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-secondary" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-24 animate-pulse rounded bg-secondary" />
@@ -180,7 +180,7 @@ function PublicAssetsContent({
   return (
     <div>
       <AssetTableHeader pnlTimeframeLabel={pnlTimeframeLabel} />
-      <div className="divide-y divide-border">
+      <div className="space-y-1.5 px-2 pb-2">
         <AssetRow
           change={holdingValueChanges[nativeSolMint] ?? null}
           name={nativeSolMeta.name}

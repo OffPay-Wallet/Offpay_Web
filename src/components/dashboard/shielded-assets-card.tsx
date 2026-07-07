@@ -10,7 +10,7 @@ export function ShieldedAssetsCard({
   walletAddress: string | undefined;
 }) {
   return (
-    <section className="flex h-full flex-col rounded-[28px] border border-border/60 bg-card/80 p-5 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm md:p-6">
+    <section className="offpay-dashboard-card flex h-full flex-col p-5 text-card-foreground md:p-6">
       <UmbraVaultPanel
         compact
         gatewayOrigin={gatewayOrigin}

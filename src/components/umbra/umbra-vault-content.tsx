@@ -68,8 +68,16 @@ export function VaultContent({
     return <VaultEmptyState title="No encrypted holdings" compact={compact} />;
   }
 
+  const maskEncryptedText = compact && decryptedBalances == null;
+
   return (
-    <div className="divide-y divide-border rounded-lg border border-border">
+    <div
+      className={cn(
+        compact
+          ? "space-y-1.5 rounded-[2rem] bg-background/20 p-1.5"
+          : "divide-y divide-border rounded-lg border border-border",
+      )}
+    >
       {holdings.map((holding) => (
         <HoldingRow
           key={holding.mint}
@@ -78,6 +86,7 @@ export function VaultContent({
           balanceLoading={decryptedLoading}
           compact={compact}
           holding={holding}
+          maskEncryptedText={maskEncryptedText}
           metadata={logoByMint[holding.mint]}
         />
       ))}
@@ -89,8 +98,10 @@ function VaultEmptyState({ compact, title }: { compact: boolean; title: string }
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-lg border border-dashed border-border p-4",
-        compact ? "min-h-24" : "min-h-32",
+        "flex items-center gap-3 p-4",
+        compact
+          ? "min-h-24 rounded-[2rem] bg-background/20"
+          : "min-h-32 rounded-lg border border-dashed border-border",
       )}
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
@@ -105,9 +116,22 @@ function VaultRowsSkeleton({ compact }: { compact: boolean }) {
   const rows = compact ? 2 : 3;
 
   return (
-    <div className="divide-y divide-border rounded-lg border border-border" aria-hidden="true">
+    <div
+      className={cn(
+        compact
+          ? "space-y-1.5 rounded-[2rem] bg-background/20 p-1.5"
+          : "divide-y divide-border rounded-lg border border-border",
+      )}
+      aria-hidden="true"
+    >
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="flex items-center justify-between gap-3 p-3">
+        <div
+          key={index}
+          className={cn(
+            "flex items-center justify-between gap-3 p-3",
+            compact && "rounded-[1.5rem]",
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <div className="h-9 w-9 rounded-full bg-muted motion-safe:animate-pulse" />
             <div className="space-y-2">
@@ -128,6 +152,7 @@ function HoldingRow({
   balanceLoading,
   compact,
   holding,
+  maskEncryptedText,
   metadata,
 }: {
   balance: UmbraEncryptedBalance | undefined;
@@ -135,16 +160,21 @@ function HoldingRow({
   balanceLoading: boolean;
   compact: boolean;
   holding: UmbraVaultHolding;
+  maskEncryptedText: boolean;
   metadata: WalletTokenMetadata | undefined;
 }) {
   const logo = metadata?.logo ?? null;
-  const verified = metadata?.verified ?? false;
+  const verified = metadata?.verified === true && !maskEncryptedText;
+  const title = maskEncryptedText ? "****" : holding.symbol;
+  const subtitle = holding.name || truncateMint(holding.mint);
 
   return (
     <div
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_auto] gap-3",
-        compact ? "items-center p-3" : "items-start p-4",
+        compact
+          ? "items-center rounded-[1.5rem] p-3 transition-colors hover:bg-secondary/20"
+          : "items-start p-4",
       )}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -156,7 +186,15 @@ function HoldingRow({
         </span>
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <p className="truncate text-sm font-semibold">{holding.symbol}</p>
+            <p
+              className={cn(
+                "truncate text-sm font-semibold",
+                maskEncryptedText && "font-mono tracking-widest",
+              )}
+              aria-label={maskEncryptedText ? "Encrypted token" : undefined}
+            >
+              {title}
+            </p>
             {verified ? (
               <BadgeCheck
                 className="h-3.5 w-3.5 shrink-0 text-success"
@@ -164,9 +202,7 @@ function HoldingRow({
               />
             ) : null}
           </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {holding.name || truncateMint(holding.mint)}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
       <HoldingBalance
@@ -174,6 +210,7 @@ function HoldingRow({
         balanceError={balanceError}
         balanceLoading={balanceLoading}
         holding={holding}
+        maskEncryptedText={maskEncryptedText}
       />
     </div>
   );
@@ -184,11 +221,13 @@ function HoldingBalance({
   balanceError,
   balanceLoading,
   holding,
+  maskEncryptedText,
 }: {
   balance: UmbraEncryptedBalance | undefined;
   balanceError: boolean;
   balanceLoading: boolean;
   holding: UmbraVaultHolding;
+  maskEncryptedText: boolean;
 }) {
   const decrypted = decryptedAmountText(balance, holding);
 
@@ -200,9 +239,20 @@ function HoldingBalance({
     );
   }
 
+  if (maskEncryptedText) {
+    return (
+      <span
+        className="inline-flex min-h-7 shrink-0 items-center rounded-lg bg-secondary/70 px-3 font-mono text-sm font-semibold tracking-widest text-foreground"
+        aria-label="Encrypted balance"
+      >
+        ****
+      </span>
+    );
+  }
+
   if (balance?.state === "pending") {
     return (
-      <Badge tone="warning" className="shrink-0">
+      <Badge tone="warning" className="shrink-0 border-0">
         Syncing
       </Badge>
     );
@@ -218,14 +268,14 @@ function HoldingBalance({
 
   if (balanceError) {
     return (
-      <Badge tone="danger" className="shrink-0">
+      <Badge tone="danger" className="shrink-0 border-0">
         Unavailable
       </Badge>
     );
   }
 
   return (
-    <Badge tone="success" className="shrink-0">
+    <Badge tone="success" className="shrink-0 border-0">
       {holding.balanceLabel}
     </Badge>
   );

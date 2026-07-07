@@ -1,24 +1,43 @@
 "use client";
 
-import { ArrowRightLeft, Clock3, Home, Send, WalletCards } from "lucide-react";
+import {
+  ArrowRightLeft,
+  ChartCandlestick,
+  Clock3,
+  Gamepad2,
+  Home,
+  Landmark,
+  Send,
+  WalletCards,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ComponentType, type SVGProps, useEffect, useState } from "react";
 
-import { appNavItems, type AppNavKey, isAppNavItemActive } from "@/lib/offpay/navigation";
+import {
+  appNavItems,
+  appNavSections,
+  type AppNavItem,
+  type AppNavKey,
+  isAppNavItemActive,
+} from "@/lib/offpay/navigation";
 import { offpayAppIconPath } from "@/lib/offpay/public-config";
 import { cn } from "@/lib/utils";
 
 const navIconByKey: Record<AppNavKey, ComponentType<SVGProps<SVGSVGElement>>> = {
+  arcade: Gamepad2,
   history: Clock3,
   home: Home,
+  perps: ChartCandlestick,
+  rwas: Landmark,
   send: Send,
   swap: ArrowRightLeft,
   vault: WalletCards,
 };
 
-// Panel width (md+). Fully retracted off-screen; revealed by cursor proximity.
+// Panel width (md+). Pinned on home; retracted off-screen elsewhere and
+// revealed by cursor proximity.
 const PANEL_WIDTH = "16rem";
 const PANEL_PX = 256;
 // How close (px) the cursor must get to the left edge to reveal the panel.
@@ -60,23 +79,57 @@ function useEdgeProximity(): readonly [boolean, (value: boolean) => void] {
   return [revealed, setRevealed] as const;
 }
 
+function NavItemLink({
+  active,
+  item,
+  onNavigate,
+}: {
+  active: boolean;
+  item: AppNavItem;
+  onNavigate: () => void;
+}) {
+  const Icon = navIconByKey[item.key];
+
+  return (
+    <li className="shrink-0 md:w-full md:shrink">
+      <Link
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        aria-label={item.label}
+        onClick={onNavigate}
+        className={cn(
+          "flex h-11 w-full items-center justify-center gap-3 rounded-lg px-3 text-sm font-semibold",
+          "transition-colors duration-150 focus-visible:outline-none md:justify-start",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "focus-visible:ring-offset-card hover:text-foreground motion-reduce:transition-none",
+          active && "offpay-sidebar-link-active",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="hidden whitespace-nowrap md:inline">{item.label}</span>
+      </Link>
+    </li>
+  );
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const [revealed, setRevealed] = useEdgeProximity();
+  const pinned = pathname === "/";
+  const open = pinned || revealed;
 
   return (
     <aside
       aria-label="Primary"
       className={cn(
         // Mobile: a normal full-width bottom bar in flow.
-        // md+: an in-flow rail whose width animates between 0 and the panel
-        // width, so the main content reflows smoothly instead of being covered.
         // z-40 keeps the rail above any full-screen page background (e.g. the
         // vault matrix overlay) so glyphs never paint over the chrome.
-        // md+: reserves no layout width — the panel is an overlay — so the main
-        // content never shifts when the rail reveals over the empty margin.
         "relative z-40 w-full shrink-0",
-        "md:h-full md:w-0",
+        // md+: home reserves the sidebar width so dashboard content starts
+        // after it; other pages keep the off-canvas sidebar behavior.
+        pinned ? "md:h-full md:w-[var(--sidebar-w)]" : "md:h-full md:w-0",
       )}
       style={{ ["--sidebar-w" as string]: PANEL_WIDTH }}
     >
@@ -88,14 +141,14 @@ export function AppSidebar() {
         className={cn(
           "offpay-liquid-glass relative isolate w-full overflow-hidden rounded-2xl text-card-foreground",
           // md+: overlay panel that slides in from the left over the empty
-          // margin, revealed on cursor proximity or keyboard focus. Transform-
-          // only transition keeps it smooth and never reflows the main content.
+          // margin on secondary pages. On home the parent reserves the panel
+          // width, so the dashboard never renders underneath the sidebar.
           "md:absolute md:inset-y-0 md:left-0 md:h-full md:w-[var(--sidebar-w)]",
           "md:will-change-transform md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none",
           // Retract fully off-screen. The rail starts inside the shell's p-4
           // padding, so translating only its own width leaves a ~16px sliver;
           // the extra offset (plus buffer for the glass glow) clears it.
-          revealed ? "md:translate-x-0" : "md:-translate-x-[calc(100%+2rem)]",
+          open ? "md:translate-x-0" : "md:-translate-x-[calc(100%+2rem)]",
           "md:has-[:focus-visible]:translate-x-0",
         )}
       >
@@ -125,38 +178,44 @@ export function AppSidebar() {
               <span className="min-w-0 truncate text-base font-bold">Offpay</span>
             </Link>
           </div>
-          <p className="hidden px-3 pt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70 md:block">
-            Menu
-          </p>
           <nav aria-label="Primary" className="min-w-0 flex-1">
-            <ul className="flex justify-around gap-1 md:flex-col md:justify-normal md:gap-2">
+            <ul className="flex min-w-max gap-1 md:hidden">
               {appNavItems.map((item) => {
                 const active = isAppNavItemActive(pathname, item.href);
-                const Icon = navIconByKey[item.key];
 
                 return (
-                  <li key={item.key} className="shrink-0 md:w-full md:shrink">
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      aria-label={item.label}
-                      onClick={() => setRevealed(false)}
-                      className={cn(
-                        "flex h-11 w-full items-center justify-center gap-3 rounded-lg px-3 text-sm font-semibold",
-                        "transition-colors duration-150 focus-visible:outline-none md:justify-start",
-                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        "focus-visible:ring-offset-card hover:text-foreground motion-reduce:transition-none",
-                        active && "offpay-sidebar-link-active",
-                        active ? "text-foreground" : "text-muted-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span className="hidden whitespace-nowrap md:inline">{item.label}</span>
-                    </Link>
-                  </li>
+                  <NavItemLink
+                    key={item.key}
+                    active={active}
+                    item={item}
+                    onNavigate={() => setRevealed(false)}
+                  />
                 );
               })}
             </ul>
+            <div className="hidden space-y-5 md:block">
+              {appNavSections.map((section) => (
+                <section key={section.label} aria-label={section.label}>
+                  <p className="px-3 pt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+                    {section.label}
+                  </p>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {section.items.map((item) => {
+                      const active = isAppNavItemActive(pathname, item.href);
+
+                      return (
+                        <NavItemLink
+                          key={item.key}
+                          active={active}
+                          item={item}
+                          onNavigate={() => setRevealed(false)}
+                        />
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </nav>
         </div>
       </div>

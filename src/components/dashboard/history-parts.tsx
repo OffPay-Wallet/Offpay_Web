@@ -14,7 +14,7 @@ export function HistoryTableHeader() {
     <div
       className={cn(
         historyRowGridClass,
-        "hidden border-b border-border/60 px-4 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:grid",
+        "hidden px-6 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:grid",
       )}
     >
       <span>Transaction</span>
@@ -35,10 +35,10 @@ export function HistoryStatusBadge({ entry }: { entry: WalletTransactionSignatur
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.6875rem] font-medium capitalize ring-1 ring-inset",
-        entry.failed && "bg-loss/15 text-loss ring-loss/25",
-        isConfirmed && "bg-gain/15 text-gain ring-gain/25",
-        isPending && "bg-warning/15 text-warning ring-warning/25",
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.6875rem] font-medium capitalize",
+        entry.failed && "bg-loss/15 text-loss",
+        isConfirmed && "bg-gain/15 text-gain",
+        isPending && "bg-warning/15 text-warning",
       )}
     >
       <Icon className="h-3 w-3" aria-hidden="true" />

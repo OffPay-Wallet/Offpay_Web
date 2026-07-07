@@ -284,7 +284,7 @@ export function PortfolioPerformanceCard({
   }, [samples]);
 
   return (
-    <section className="relative flex flex-col overflow-hidden rounded-[28px] border border-border/60 bg-card/80 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm">
+    <section className="offpay-dashboard-card flex flex-col text-card-foreground">
       <div className="flex flex-col gap-4 p-6 pb-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -314,7 +314,7 @@ export function PortfolioPerformanceCard({
 
       <div className="relative h-40 w-full">
         {loading ? (
-          <div className="mx-6 mb-2 h-[calc(100%-0.5rem)] animate-pulse rounded-2xl bg-secondary/30" />
+          <div className="mx-6 mb-2 h-[calc(100%-0.5rem)] animate-pulse rounded-[2rem] bg-secondary/20" />
         ) : hasChart ? (
           <div
             className="h-full w-full"
@@ -340,7 +340,7 @@ export function PortfolioPerformanceCard({
                   vertical={false}
                   strokeDasharray="4 8"
                   stroke="var(--offpay-color-silver)"
-                  strokeOpacity={0.14}
+                  strokeOpacity={0.07}
                 />
                 <YAxis dataKey="usdValue" hide domain={chartDomain ?? ["dataMin", "dataMax"]} />
                 <Tooltip
@@ -378,7 +378,7 @@ export function PortfolioPerformanceCard({
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="mx-6 mb-2 flex h-[calc(100%-0.5rem)] items-center justify-center rounded-2xl border border-border/60 bg-background/40 p-4 text-center">
+          <div className="offpay-dashboard-inset mx-6 mb-2 flex h-[calc(100%-0.5rem)] items-center justify-center rounded-[2rem] p-4 text-center">
             <p className="text-sm text-muted-foreground">
               {priceError
                 ? priceError.message

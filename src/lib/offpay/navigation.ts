@@ -1,6 +1,22 @@
-export type AppNavKey = "home" | "vault" | "send" | "swap" | "history";
+export type AppNavKey =
+  | "home"
+  | "vault"
+  | "send"
+  | "swap"
+  | "history"
+  | "perps"
+  | "rwas"
+  | "arcade";
 
-export type AppNavHref = "/" | "/vault" | "/send" | "/swap" | "/history";
+export type AppNavHref =
+  | "/"
+  | "/vault"
+  | "/send"
+  | "/swap"
+  | "/history"
+  | "/perps"
+  | "/rwas"
+  | "/arcade";
 
 export type AppNavItem = {
   key: AppNavKey;
@@ -8,33 +24,71 @@ export type AppNavItem = {
   label: string;
 };
 
-export const appNavItems = [
+export type AppNavSection = {
+  label: string;
+  items: readonly AppNavItem[];
+};
+
+export const appNavSections = [
   {
-    key: "home",
-    href: "/",
-    label: "Home",
+    label: "Menu",
+    items: [
+      {
+        key: "home",
+        href: "/",
+        label: "Home",
+      },
+      {
+        key: "vault",
+        href: "/vault",
+        label: "Vault",
+      },
+      {
+        key: "send",
+        href: "/send",
+        label: "Send",
+      },
+      {
+        key: "swap",
+        href: "/swap",
+        label: "Swap",
+      },
+      {
+        key: "history",
+        href: "/history",
+        label: "History",
+      },
+    ],
   },
   {
-    key: "vault",
-    href: "/vault",
-    label: "Vault",
+    label: "Products",
+    items: [
+      {
+        key: "perps",
+        href: "/perps",
+        label: "Perps",
+      },
+      {
+        key: "rwas",
+        href: "/rwas",
+        label: "RWAs",
+      },
+      {
+        key: "arcade",
+        href: "/arcade",
+        label: "Arcade",
+      },
+    ],
   },
-  {
-    key: "send",
-    href: "/send",
-    label: "Send",
+] as const satisfies readonly AppNavSection[];
+
+export const appNavItems: readonly AppNavItem[] = appNavSections.reduce<AppNavItem[]>(
+  (items, section) => {
+    items.push(...section.items);
+    return items;
   },
-  {
-    key: "swap",
-    href: "/swap",
-    label: "Swap",
-  },
-  {
-    key: "history",
-    href: "/history",
-    label: "History",
-  },
-] as const satisfies readonly AppNavItem[];
+  [],
+);
 
 export function isAppNavItemActive(pathname: string, href: AppNavHref): boolean {
   if (href === "/") {

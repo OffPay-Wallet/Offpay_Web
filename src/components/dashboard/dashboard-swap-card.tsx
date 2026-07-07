@@ -69,7 +69,7 @@ export function DashboardSwapCard({
     : "/swap";
 
   return (
-    <section className="rounded-[28px] border border-border/60 bg-card/80 p-5 text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.32)] backdrop-blur-sm md:p-6">
+    <section className="offpay-dashboard-card p-5 text-card-foreground md:p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Swap
@@ -80,7 +80,7 @@ export function DashboardSwapCard({
       </div>
 
       <form className="mt-5 space-y-2.5">
-        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+        <div className="offpay-dashboard-inset rounded-[2rem] p-4">
           <label
             htmlFor="dashboard-swap-amount"
             className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
@@ -107,7 +107,7 @@ export function DashboardSwapCard({
             <select
               value={selectedHolding?.priceMint ?? ""}
               onChange={(event) => setSelectedMint(event.target.value)}
-              className="h-10 rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-10 rounded-full bg-secondary/45 px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Select sell token"
               disabled={swapHoldings.length === 0}
             >
@@ -136,7 +136,7 @@ export function DashboardSwapCard({
           </span>
         </div>
 
-        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+        <div className="offpay-dashboard-inset rounded-[2rem] p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             You get
           </p>
@@ -144,7 +144,7 @@ export function DashboardSwapCard({
             <p className="font-display text-3xl font-bold tracking-tight tabular-nums">
               {estimatedUsd == null ? "--" : formatFiatValue(estimatedUsd)}
             </p>
-            <span className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold">
+            <span className="rounded-full bg-secondary/45 px-3 py-2 text-sm font-semibold">
               USD
             </span>
           </div>

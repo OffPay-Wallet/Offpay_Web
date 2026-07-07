@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import Link from "next/link";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -214,11 +214,8 @@ export function UmbraVaultPanel({
       <div className={cn("flex h-full min-h-0 flex-col", className)}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="font-display text-2xl font-bold leading-tight tracking-tight">
               Vault
-            </p>
-            <h2 className="mt-0.5 font-display text-xl font-bold leading-tight tracking-tight">
-              Encrypted holdings
             </h2>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -234,16 +231,20 @@ export function UmbraVaultPanel({
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Link
             href="/vault"
-            className={cn(buttonVariants({ variant: "primary" }), "rounded-full")}
+            className={cn(
+              buttonVariants({ variant: "primary" }),
+              "offpay-vault-action-button offpay-vault-action-button-primary h-12 rounded-full px-6 text-base font-semibold",
+            )}
           >
-            <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
             Shield
           </Link>
           <Link
             href="/vault"
-            className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "offpay-vault-action-button offpay-vault-action-button-secondary h-12 rounded-full px-6 text-base font-semibold",
+            )}
           >
-            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             Unshield
           </Link>
         </div>
@@ -299,16 +300,11 @@ function RevealBalancesButton({
       type="button"
       variant="outline"
       size="sm"
-      className="h-8 gap-1.5 rounded-full px-3 text-xs"
+      className="h-8 rounded-full px-4 text-xs"
       disabled={disabled || loading}
       aria-pressed={revealed}
       onClick={onToggle}
     >
-      {revealed ? (
-        <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
-      ) : (
-        <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-      )}
       {label}
     </Button>
   );

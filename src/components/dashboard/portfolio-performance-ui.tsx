@@ -45,7 +45,7 @@ export function PortfolioTimeframeToggle({
     <div
       role="group"
       aria-label="Chart timeframe"
-      className="flex items-center gap-0.5 rounded-full border border-border/70 bg-background/50 p-1"
+      className="flex items-center gap-0.5 rounded-full bg-background/45 p-1"
     >
       {portfolioTimeframes.map((timeframe) => {
         const isActive = timeframe.id === activeId;
@@ -93,10 +93,10 @@ export function PortfolioChangePill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset",
-        positive && "bg-gain/15 text-gain ring-gain/25",
-        negative && "bg-loss/15 text-loss ring-loss/25",
-        !positive && !negative && "bg-secondary/50 text-muted-foreground ring-transparent",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+        positive && "bg-gain/15 text-gain",
+        negative && "bg-loss/15 text-loss",
+        !positive && !negative && "bg-secondary/50 text-muted-foreground",
       )}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -125,7 +125,7 @@ export function PortfolioRefreshButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/50 text-muted-foreground",
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background/45 text-muted-foreground",
         "transition-colors hover:text-foreground focus-visible:outline-none",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-40",
