@@ -5,9 +5,8 @@ export default function SendPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Send"
-        title="Private payment"
-        description="Choose MagicBlock or Umbra before wallet signing."
+        title="Private Transfer"
+        description="Configure and review your transfer."
       />
 
       <PrivateSendFlow />

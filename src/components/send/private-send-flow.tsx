@@ -1,25 +1,33 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { LockKeyhole } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
-import { SectionCard } from "@/components/offpay/section-card";
 import {
+  privateSendPrimaryLabel,
+  type PrivateSendFlowStep,
+} from "@/components/send/private-send-form-utils";
+import {
+  runMagicBlockPrivateSend,
+  runUmbraRoutePrivateSend,
+} from "@/components/send/private-send-execution";
+import {
+  PrivateSendAmountCard,
+  PrivateSendFeeSummary,
+  PrivateSendRecipientCard,
   PrivateSendResultBanner,
-  PrivateSendRouteBoundary,
   PrivateSendRouteSelector,
   type PrivateSendResult,
 } from "@/components/send/private-send-route-ui";
+import { usePrivateSendFeePreview } from "@/components/send/use-private-send-fee-preview";
 import { Button } from "@/components/ui/button";
 import { useSolanaWalletAccount } from "@/hooks/use-solana-wallet-account";
-import { getErrorMessage, truncateAddress } from "@/lib/offpay/display";
-import { ensureGatewaySession } from "@/lib/offpay/gateway-session-client";
+import { getErrorMessage } from "@/lib/offpay/display";
 import {
+  readGatewayPublicBalances,
   readGatewayUmbraVaultHoldings,
-  readGatewayUmbraVaultRegistrationStatus,
 } from "@/lib/offpay/gateway-client";
-import { requestGatewayMagicBlockPrivateSend } from "@/lib/offpay/private-send-gateway-client";
+import { formatFiatValue } from "@/lib/offpay/number-format";
 import {
   formatAtomicTokenAmount,
   parseTokenAmountToAtomic,
@@ -28,28 +36,7 @@ import {
   validateSolanaAddress,
 } from "@/lib/offpay/private-send";
 import { getGatewayOrigin, getPublicSolanaCluster } from "@/lib/offpay/public-config";
-import { signSerializedTransactionBase64 } from "@/lib/offpay/solana-transaction-signing";
-import type {
-  MagicBlockSubmittedPrivateTransfer,
-  MagicBlockUnsignedPrivateTransfer,
-} from "@/lib/offpay/types";
-import {
-  executeUmbraPrivateSend,
-  umbraVaultExecutionMessage,
-} from "@/lib/offpay/umbra-vault-execution";
-
-type FlowStep = "idle" | "session" | "prepare" | "sign" | "submit" | "success";
-
-const fieldClassName =
-  "h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60";
-
-function fieldErrorId(field: string) {
-  return `private-send-${field}-error`;
-}
-
-function magicBlockSignatureLabel(result: MagicBlockSubmittedPrivateTransfer): string {
-  return truncateAddress(result.signature, 6);
-}
+import { umbraVaultExecutionMessage } from "@/lib/offpay/umbra-vault-execution";
 
 export function PrivateSendFlow() {
   const {
@@ -57,7 +44,6 @@ export function PrivateSendFlow() {
     authenticated,
     walletAddress,
     walletCustody,
-    walletsReady,
   } = useSolanaWalletAccount();
   const cluster = getPublicSolanaCluster();
   const gatewayOrigin = getGatewayOrigin();
@@ -66,9 +52,8 @@ export function PrivateSendFlow() {
   const [recipient, setRecipient] = useState("");
   const [mint, setMint] = useState(tokens[0]?.mint ?? "");
   const [amount, setAmount] = useState("");
-  const [memo, setMemo] = useState("");
   const [attempted, setAttempted] = useState(false);
-  const [step, setStep] = useState<FlowStep>("idle");
+  const [step, setStep] = useState<PrivateSendFlowStep>("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PrivateSendResult | null>(null);
   const selectedToken = tokens.find((token) => token.mint === mint) ?? tokens[0] ?? null;
@@ -94,12 +79,30 @@ export function PrivateSendFlow() {
     () => new Set(umbraHoldingsQuery.data?.holdings.map((holding) => holding.mint) ?? []),
     [umbraHoldingsQuery.data],
   );
+  const publicBalancesQuery = useQuery({
+    enabled: Boolean(gatewayOrigin && walletAddress),
+    queryKey: ["private-send-public-balances", gatewayOrigin, cluster, walletAddress],
+    queryFn: async () => {
+      if (!gatewayOrigin || !walletAddress) {
+        throw new Error("Gateway origin or wallet is not configured.");
+      }
+
+      const envelope = await readGatewayPublicBalances(gatewayOrigin, {
+        network: cluster,
+        walletAddress,
+      });
+
+      if (!envelope.ok) throw new Error(envelope.error.message);
+      return envelope.data;
+    },
+  });
   const parsedAmount =
     selectedToken == null
       ? { error: "Select a supported token." }
       : parseTokenAmountToAtomic(amount, selectedToken.decimals);
   const recipientError = validateSolanaAddress(recipient);
   const amountError = "error" in parsedAmount ? parsedAmount.error : null;
+  const amountAtomic = "amountAtomic" in parsedAmount ? parsedAmount.amountAtomic : null;
   const providerError =
     provider === "umbra" &&
     selectedToken &&
@@ -107,6 +110,46 @@ export function PrivateSendFlow() {
     !umbraSupportedMints.has(selectedToken.mint)
       ? `${selectedToken.symbol} is not available through Umbra on this network.`
       : null;
+  let selectedBalanceAtomic: bigint | null = null;
+  if (selectedToken && publicBalancesQuery.data) {
+    const tokenBalance = publicBalancesQuery.data.tokens.find(
+      (token) => token.mint === selectedToken.mint,
+    );
+
+    try {
+      selectedBalanceAtomic = BigInt(tokenBalance?.amount ?? "0");
+    } catch {
+      selectedBalanceAtomic = null;
+    }
+  }
+  const selectedBalanceLabel =
+    selectedBalanceAtomic != null && selectedToken
+      ? formatAtomicTokenAmount(selectedBalanceAtomic, selectedToken.decimals)
+      : null;
+  const selectedBalanceUnavailable =
+    publicBalancesQuery.isError || (!publicBalancesQuery.isLoading && selectedBalanceAtomic == null);
+  const insufficientBalance =
+    amountAtomic != null && selectedBalanceAtomic != null && amountAtomic > selectedBalanceAtomic;
+  const feePreview = usePrivateSendFeePreview({
+    activeWallet,
+    amountAtomic,
+    cluster,
+    enabled: Boolean(
+      authenticated &&
+        gatewayOrigin &&
+        selectedToken &&
+        amountAtomic &&
+        !recipientError &&
+        !amountError &&
+        !providerError,
+    ),
+    gatewayOrigin,
+    memo: "",
+    provider,
+    recipient,
+    selectedToken,
+    walletCustody,
+  });
   const canSubmit = Boolean(
     authenticated &&
       activeWallet &&
@@ -116,100 +159,28 @@ export function PrivateSendFlow() {
       !recipientError &&
       !amountError &&
       !providerError &&
+      !insufficientBalance &&
+      feePreview.isReady &&
       step !== "session" &&
       step !== "prepare" &&
       step !== "sign" &&
       step !== "submit",
   );
-
-  async function runMagicBlockSend(amountAtomic: bigint, amountLabel: string) {
-    if (!activeWallet || !gatewayOrigin || !walletCustody || !selectedToken) return;
-
-    if (amountAtomic > BigInt(Number.MAX_SAFE_INTEGER)) {
-      throw new Error("MagicBlock supports this token up to the safe integer amount limit.");
-    }
-
-    setStep("session");
-    const session = await ensureGatewaySession({
-      cluster,
-      gatewayOrigin,
-      wallet: activeWallet,
-      walletCustody,
-    });
-
-    setStep("prepare");
-    const preparedEnvelope = await requestGatewayMagicBlockPrivateSend(gatewayOrigin, {
-      action: "prepare",
-      amountAtomic: amountAtomic.toString(),
-      mint: selectedToken.mint,
-      provider: "magicblock",
-      recipient: recipient.trim(),
-      sessionToken: session.sessionToken,
-      ...(memo.trim() ? { memo: memo.trim() } : {}),
-    });
-
-    if (!preparedEnvelope.ok) throw new Error(preparedEnvelope.error.message);
-    const prepared = preparedEnvelope.data as MagicBlockUnsignedPrivateTransfer;
-
-    setStep("sign");
-    const signedTransactionBase64 = await signSerializedTransactionBase64({
-      transactionBase64: prepared.transactionBase64,
-      wallet: activeWallet,
-    });
-
-    setStep("submit");
-    const submittedEnvelope = await requestGatewayMagicBlockPrivateSend(gatewayOrigin, {
-      action: "submit",
-      lastValidBlockHeight: prepared.lastValidBlockHeight,
-      provider: "magicblock",
-      recentBlockhash: prepared.recentBlockhash,
-      sendTo: prepared.sendTo,
-      sessionToken: session.sessionToken,
-      transactionBase64: signedTransactionBase64,
-      ...(prepared.sendRpcEndpoint ? { sendRpcEndpoint: prepared.sendRpcEndpoint } : {}),
-    });
-
-    if (!submittedEnvelope.ok) throw new Error(submittedEnvelope.error.message);
-
-    setResult({
-      amountLabel,
-      provider,
-      signatureLabel: magicBlockSignatureLabel(
-        submittedEnvelope.data as MagicBlockSubmittedPrivateTransfer,
-      ),
-    });
-  }
-
-  async function runUmbraSend(amountAtomic: bigint, amountLabel: string) {
-    if (!gatewayOrigin || !selectedToken) return;
-
-    setStep("prepare");
-    const registration = await readGatewayUmbraVaultRegistrationStatus(gatewayOrigin, {
-      network: cluster,
-      walletAddress: recipient.trim(),
-    });
-
-    if (!registration.ok) throw new Error(registration.error.message);
-    if (!registration.data.registered) {
-      throw new Error("Recipient needs Umbra setup before receiving this route.");
-    }
-
-    setStep("sign");
-    const sent = await executeUmbraPrivateSend({
-      amountAtomic,
-      cluster,
-      gatewayOrigin,
-      mint: selectedToken.mint,
-      recipientAddress: recipient.trim(),
-      wallet: activeWallet,
-    });
-
-    setResult({
-      amountLabel,
-      provider,
-      signatureLabel: sent.signatureLabel,
-    });
-  }
+  const amountFiatLabel =
+    amountAtomic && feePreview.tokenPriceUsd
+      ? formatFiatValue((Number(amountAtomic) / 10 ** (selectedToken?.decimals ?? 0)) * feePreview.tokenPriceUsd)
+      : "$0.00";
+  const primaryActionLabel = privateSendPrimaryLabel({
+    amount,
+    amountError,
+    authenticated,
+    feeLoading: feePreview.isLoading,
+    insufficientBalance,
+    providerError,
+    recipientError,
+    selectedToken,
+    step,
+  });
 
   async function submitPrivateSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,17 +199,42 @@ export function PrivateSendFlow() {
     }
 
     if (!selectedToken || recipientError || amountError || providerError) return;
+    if (insufficientBalance) return;
 
-    const amountAtomic = "amountAtomic" in parsedAmount ? parsedAmount.amountAtomic : 0n;
-    const amountLabel = `${formatAtomicTokenAmount(amountAtomic, selectedToken.decimals)} ${
+    const submitAmountAtomic = amountAtomic ?? 0n;
+    const amountLabel = `${formatAtomicTokenAmount(submitAmountAtomic, selectedToken.decimals)} ${
       selectedToken.symbol
     }`;
 
     try {
       if (provider === "magicblock") {
-        await runMagicBlockSend(amountAtomic, amountLabel);
+        setResult(
+          await runMagicBlockPrivateSend({
+            activeWallet,
+            amountAtomic: submitAmountAtomic,
+            amountLabel,
+            cluster,
+            draft: feePreview.magicBlockDraft,
+            gatewayOrigin,
+            recipient,
+            selectedToken,
+            setStep,
+            walletCustody,
+          }),
+        );
       } else {
-        await runUmbraSend(amountAtomic, amountLabel);
+        setResult(
+          await runUmbraRoutePrivateSend({
+            activeWallet,
+            amountAtomic: submitAmountAtomic,
+            amountLabel,
+            cluster,
+            gatewayOrigin,
+            recipient,
+            selectedToken,
+            setStep,
+          }),
+        );
       }
       setStep("success");
     } catch (caught) {
@@ -247,124 +243,109 @@ export function PrivateSendFlow() {
     }
   }
 
+  async function pasteRecipient() {
+    try {
+      const value = await navigator.clipboard.readText();
+      if (value.trim()) {
+        setRecipient(value.trim());
+        setError(null);
+      }
+    } catch {
+      setError("Clipboard permission was denied.");
+    }
+  }
+
   return (
-    <form onSubmit={submitPrivateSend} className="space-y-5">
-      <SectionCard
-        title="Private send"
-        icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}
-      >
-        <PrivateSendRouteSelector
-          provider={provider}
-          onProviderChange={(nextProvider) => {
-            setProvider(nextProvider);
+    <form
+      onSubmit={submitPrivateSend}
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5"
+    >
+      <PrivateSendAmountCard
+        amount={amount}
+        balanceLabel={selectedBalanceLabel}
+        balanceLoading={publicBalancesQuery.isLoading || publicBalancesQuery.isFetching}
+        balanceUnavailable={selectedBalanceUnavailable}
+        canUseMax={selectedBalanceAtomic != null && selectedBalanceAtomic > 0n}
+        fiatLabel={amountFiatLabel}
+        hasError={attempted && Boolean(amountError)}
+        onAmountChange={(value) => {
+          setAmount(value);
+          setResult(null);
+          setError(null);
+        }}
+        onMax={() => {
+          if (selectedBalanceAtomic != null && selectedToken) {
+            setAmount(formatAtomicTokenAmount(selectedBalanceAtomic, selectedToken.decimals));
             setResult(null);
             setError(null);
-          }}
-        />
-
-        <div className="mt-5 grid gap-4">
-          <label className="grid gap-2 text-sm font-medium" htmlFor="private-send-recipient">
-            Recipient
-            <input
-              id="private-send-recipient"
-              value={recipient}
-              onChange={(event) => setRecipient(event.target.value)}
-              className={fieldClassName}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Solana address"
-              aria-invalid={attempted && recipientError ? "true" : undefined}
-              aria-describedby={
-                attempted && recipientError ? fieldErrorId("recipient") : undefined
-              }
-            />
-          </label>
-          {attempted && recipientError ? (
-            <p id={fieldErrorId("recipient")} className="text-xs text-destructive">
-              {recipientError}
-            </p>
-          ) : null}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium" htmlFor="private-send-asset">
-              Asset
-              <select
-                id="private-send-asset"
-                value={mint}
-                onChange={(event) => setMint(event.target.value)}
-                className={fieldClassName}
-                disabled={tokens.length === 0}
-              >
-                {tokens.map((token) => (
-                  <option key={token.mint} value={token.mint}>
-                    {token.symbol}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-2 text-sm font-medium" htmlFor="private-send-amount">
-              Amount
-              <input
-                id="private-send-amount"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                className={fieldClassName}
-                autoComplete="off"
-                inputMode="decimal"
-                placeholder="0.00"
-                spellCheck={false}
-                aria-invalid={attempted && amountError ? "true" : undefined}
-                aria-describedby={attempted && amountError ? fieldErrorId("amount") : undefined}
-              />
-            </label>
-          </div>
-          {attempted && amountError ? (
-            <p id={fieldErrorId("amount")} className="text-xs text-destructive">
-              {amountError}
-            </p>
-          ) : null}
-
-          {provider === "magicblock" ? (
-            <label className="grid gap-2 text-sm font-medium" htmlFor="private-send-memo">
-              Memo
-              <input
-                id="private-send-memo"
-                value={memo}
-                onChange={(event) => setMemo(event.target.value)}
-                className={fieldClassName}
-                autoComplete="off"
-                maxLength={80}
-                placeholder="Optional"
-                spellCheck={false}
-              />
-            </label>
-          ) : null}
-
-          {providerError ? <p className="text-xs text-destructive">{providerError}</p> : null}
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          {result ? <PrivateSendResultBanner result={result} /> : null}
-        </div>
-
-        <Button type="submit" className="mt-5 w-full" loading={step !== "idle" && step !== "success"} disabled={!canSubmit}>
-          {step === "session"
-            ? "Authorizing"
-            : step === "prepare"
-              ? "Preparing"
-              : step === "sign"
-                ? "Check wallet"
-                : step === "submit"
-                  ? "Submitting"
-                  : "Send privately"}
-        </Button>
-      </SectionCard>
-
-      <PrivateSendRouteBoundary
-        cluster={cluster}
-        provider={provider}
-        walletAddress={walletAddress ?? null}
-        walletsReady={walletsReady}
+          }
+        }}
+        onMintChange={(nextMint) => {
+          setMint(nextMint);
+          setResult(null);
+          setError(null);
+        }}
+        selectedMint={mint}
+        selectedToken={selectedToken}
+        tokens={tokens}
       />
+      {attempted && amountError ? (
+        <p id="private-send-amount-error" className="px-1 text-xs text-destructive">
+          {amountError}
+        </p>
+      ) : null}
+
+      <PrivateSendRecipientCard
+        error={attempted && recipientError ? recipientError : null}
+        onPaste={pasteRecipient}
+        onRecipientChange={(value) => {
+          setRecipient(value);
+          setResult(null);
+          setError(null);
+        }}
+        recipient={recipient}
+      />
+
+      <PrivateSendRouteSelector
+        provider={provider}
+        onProviderChange={(nextProvider) => {
+          setProvider(nextProvider);
+          setResult(null);
+          setError(null);
+        }}
+      />
+
+      {providerError ? <p className="px-1 text-xs text-destructive">{providerError}</p> : null}
+      {insufficientBalance && selectedToken ? (
+        <p className="px-1 text-xs text-destructive">
+          Insufficient {selectedToken.symbol} balance.
+        </p>
+      ) : null}
+      {selectedToken && amountAtomic && !recipientError && !amountError && !providerError ? (
+        <PrivateSendFeeSummary
+          error={feePreview.errorMessage}
+          isLoading={feePreview.isLoading}
+          quote={feePreview.quote}
+          solPriceUsd={feePreview.solPriceUsd}
+          token={selectedToken}
+          tokenPriceUsd={feePreview.tokenPriceUsd}
+        />
+      ) : null}
+      {error ? (
+        <p role="alert" className="rounded-2xl bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {result ? <PrivateSendResultBanner result={result} /> : null}
+
+      <Button
+        type="submit"
+        className="h-14 w-full rounded-[1.5rem] text-base font-semibold"
+        loading={step !== "idle" && step !== "success"}
+        disabled={!canSubmit}
+      >
+        {primaryActionLabel}
+      </Button>
     </form>
   );
 }
