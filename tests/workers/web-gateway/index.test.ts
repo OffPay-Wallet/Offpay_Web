@@ -13,7 +13,7 @@ const session: WebSession = {
     custody: "external-solana",
   },
   issuedAt: "2026-07-02T00:00:00.000Z",
-  expiresAt: "2026-07-09T00:00:00.000Z",
+  expiresAt: "2099-07-09T00:00:00.000Z",
 };
 
 afterEach(() => {

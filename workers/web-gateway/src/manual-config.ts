@@ -99,6 +99,11 @@ const configGroups = [
     allOf: ["MAGICBLOCK_DEVNET_VALIDATORS", "MAGICBLOCK_MAINNET_VALIDATORS"],
   },
   {
+    id: "magicblock-private-payments",
+    description: "MagicBlock Private Payments API",
+    allOf: ["MAGICBLOCK_PRIVATE_PAYMENTS_API_ORIGIN"],
+  },
+  {
     id: "offpay-token-mints",
     description: "Offpay supported token mint addresses",
     allOf: [
@@ -275,9 +280,15 @@ export const manualWorkflowRoutes = [
     method: "POST",
     path: "/web/payment/private-send",
     capability: "private-payment-send",
-    implemented: false,
+    implemented: true,
     public: false,
-    configGroups: ["session", "umbra-devnet", "umbra-mainnet", "offpay-token-mints"],
+    configGroups: [
+      "session",
+      "magicblock-private-payments",
+      "umbra-devnet",
+      "umbra-mainnet",
+      "offpay-token-mints",
+    ],
   },
   {
     method: "POST",

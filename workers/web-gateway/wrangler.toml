@@ -39,6 +39,7 @@ enabled = true
 # npx wrangler secret put UMBRA_CIRCUIT_VERSION --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put UMBRA_MIN_SDK_VERSION --config workers/web-gateway/wrangler.toml
 # npx wrangler secret put UMBRA_LOCAL_TEST_MODE --config workers/web-gateway/wrangler.toml
+# npx wrangler secret put MAGICBLOCK_PRIVATE_PAYMENTS_API_ORIGIN --config workers/web-gateway/wrangler.toml
 #
 # OFFPAY_DEBUG_LOGS enables request and RPC timing console logs
 # when set to 1/true/debug/verbose. Keep it unset unless you are actively diagnosing.

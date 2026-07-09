@@ -24,6 +24,10 @@ import {
 } from "./market";
 import { JupiterGatewayError, fetchJupiterTokenList } from "./jupiter";
 import {
+  handlePrivateSendRequest,
+  privateSendRequestSchema,
+} from "./private-payments";
+import {
   appendServerTiming,
   durationSince,
   gatewayDebugLog,
@@ -579,6 +583,13 @@ app.get("/web/wallet/balance", requireSession, async (c) => {
     label: "wallet_balance",
   });
 });
+
+app.post(
+  "/web/payment/private-send",
+  requireSession,
+  zValidator("json", privateSendRequestSchema),
+  async (c) => handlePrivateSendRequest(c, c.req.valid("json")),
+);
 
 registerSdkProxyRoutes(app);
 

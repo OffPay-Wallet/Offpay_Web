@@ -62,6 +62,7 @@ UMBRA_RELAYER_URL_MAINNET=
 UMBRA_CIRCUIT_VERSION=
 UMBRA_MIN_SDK_VERSION=
 UMBRA_LOCAL_TEST_MODE=
+MAGICBLOCK_PRIVATE_PAYMENTS_API_ORIGIN=
 MAGICBLOCK_DEVNET_VALIDATORS=
 MAGICBLOCK_MAINNET_VALIDATORS=
 OFFPAY_DEVNET_USDC_MINT=
@@ -113,6 +114,7 @@ npx wrangler secret put UMBRA_RELAYER_URL_MAINNET --config workers/web-gateway/w
 npx wrangler secret put UMBRA_CIRCUIT_VERSION --config workers/web-gateway/wrangler.toml
 npx wrangler secret put UMBRA_MIN_SDK_VERSION --config workers/web-gateway/wrangler.toml
 npx wrangler secret put UMBRA_LOCAL_TEST_MODE --config workers/web-gateway/wrangler.toml
+npx wrangler secret put MAGICBLOCK_PRIVATE_PAYMENTS_API_ORIGIN --config workers/web-gateway/wrangler.toml
 npx wrangler secret put MAGICBLOCK_DEVNET_VALIDATORS --config workers/web-gateway/wrangler.toml
 npx wrangler secret put MAGICBLOCK_MAINNET_VALIDATORS --config workers/web-gateway/wrangler.toml
 npx wrangler secret put OFFPAY_DEVNET_USDC_MINT --config workers/web-gateway/wrangler.toml

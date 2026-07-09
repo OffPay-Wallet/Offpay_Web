@@ -8,11 +8,15 @@ import {
   getUmbraClient,
   type IUmbraClient,
 } from "@umbra-privacy/sdk";
-import { getATAIntoETADirectDepositorFunction } from "@umbra-privacy/sdk/deposit";
+import {
+  getATAIntoETADirectDepositorFunction,
+  getATAIntoReceiverBurnableStealthPoolNoteCreatorFunction,
+} from "@umbra-privacy/sdk/deposit";
 import { getEncryptedBalanceQuerierFunction } from "@umbra-privacy/sdk/query";
 import { getUserRegistrationFunction } from "@umbra-privacy/sdk/registration";
 import type { MasterSeed, U64 } from "@umbra-privacy/sdk/types";
 import { getETAIntoATAWithdrawerFunction } from "@umbra-privacy/sdk/withdrawal";
+import { getATAIntoStealthPoolNoteCreatorProver } from "@umbra-privacy/sdk/zk-prover";
 
 import type { SolanaCluster, UmbraNetwork, UmbraVaultHolding } from "./types";
 import { UmbraVaultExecutionError } from "./umbra-vault-errors";
@@ -41,6 +45,19 @@ export type UmbraVaultRegistrationInput = {
 
 export type UmbraVaultExecutionResult = {
   action: VaultAction;
+  signatureLabel: string | null;
+};
+
+export type UmbraPrivateSendInput = {
+  amountAtomic: bigint;
+  cluster: SolanaCluster;
+  gatewayOrigin: string | undefined;
+  mint: string;
+  recipientAddress: string;
+  wallet: ConnectedStandardSolanaWallet | undefined;
+};
+
+export type UmbraPrivateSendResult = {
   signatureLabel: string | null;
 };
 
@@ -348,4 +365,36 @@ export async function executeUmbraVaultAction({
   });
 
   return { action, signatureLabel: signatureLabel(result) };
+}
+
+export async function executeUmbraPrivateSend({
+  amountAtomic,
+  cluster,
+  gatewayOrigin,
+  mint,
+  recipientAddress,
+  wallet,
+}: UmbraPrivateSendInput): Promise<UmbraPrivateSendResult> {
+  if (!wallet) {
+    throw new UmbraVaultExecutionError("wallet_missing", "Connect wallet first.");
+  }
+
+  const client = await createUmbraClient({ cluster, gatewayOrigin, wallet });
+  const createNote = getATAIntoReceiverBurnableStealthPoolNoteCreatorFunction(
+    { client },
+    { zkProver: getATAIntoStealthPoolNoteCreatorProver() },
+  );
+  const result = await createNote(
+    {
+      amount: amountAtomic as U64,
+      destinationAddress: address(recipientAddress),
+      mint: address(mint),
+    },
+    {
+      accountInfoCommitment: "confirmed",
+      epochInfoCommitment: "confirmed",
+    },
+  );
+
+  return { signatureLabel: signatureLabel(result) };
 }

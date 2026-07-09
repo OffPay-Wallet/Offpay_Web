@@ -170,6 +170,60 @@ export type UmbraVaultRegistrationStatus = {
   x25519Registered: boolean;
 };
 
+export type PrivateSendRouteProvider = "magicblock" | "umbra";
+
+export type MagicBlockBalanceLocation = "base" | "ephemeral";
+
+export type MagicBlockPrivateSendPrepareInput = {
+  amountAtomic: string;
+  memo?: string;
+  mint: string;
+  recipient: string;
+};
+
+export type MagicBlockPrivateSendSubmitInput = {
+  lastValidBlockHeight: number;
+  recentBlockhash: string;
+  sendRpcEndpoint?: string;
+  sendTo: MagicBlockBalanceLocation;
+  transactionBase64: string;
+};
+
+export type MagicBlockPrivateSendRequest =
+  | ({
+      action: "prepare";
+      provider: "magicblock";
+    } & MagicBlockPrivateSendPrepareInput)
+  | ({
+      action: "submit";
+      provider: "magicblock";
+    } & MagicBlockPrivateSendSubmitInput);
+
+export type MagicBlockUnsignedPrivateTransfer = {
+  fees?: {
+    lamports: string;
+    tokens: string;
+  };
+  instructionCount: number;
+  kind: "transfer";
+  lastValidBlockHeight: number;
+  recentBlockhash: string;
+  requiredSigners: string[];
+  sendRpcEndpoint?: string;
+  sendTo: MagicBlockBalanceLocation;
+  transactionBase64: string;
+  validator?: string;
+  version: "legacy" | "v0";
+};
+
+export type MagicBlockSubmittedPrivateTransfer = {
+  confirmationRequiresAuthToken: boolean;
+  confirmationRpcEndpoint: string;
+  confirmed: boolean;
+  sendTo: MagicBlockBalanceLocation;
+  signature: string;
+};
+
 export type ReadWalletTransactionsInput = {
   walletAddress: string;
   network: SolanaCluster;
